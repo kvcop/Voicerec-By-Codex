@@ -44,13 +44,22 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
   sequentially.
 
 ## Code Style
+
+### Backend
 Use Google-style docstrings in English. Functions with more than two arguments
 must include an ``Args`` section. For complex return types or large functions,
 add a ``Returns`` section. If a function explicitly raises an exception, include
 a ``Raises`` section. API endpoints are exempt because their logic should reside
 in service layers.
 
-### Backend
 - All functions must have explicit argument and return types.
 - Keep controllers (endpoints) thin; place the logic inside service classes.
 - Organize asynchronous functions and database access via repositories.
+
+
+### Frontend
+- Write all React components as functional components using hooks.
+- Specify explicit TypeScript prop types for every component.
+- Follow the structure "component – folder – index.tsx" and use CSS modules
+  for styles.
+  
