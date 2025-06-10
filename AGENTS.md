@@ -6,6 +6,7 @@ This repository contains both backend and frontend code for a local meeting tran
 ## Running Tests
 - Backend tests: run from inside the `backend` directory using `uv run pytest`.
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
+- Always run `uv sync` in the `backend` directory before executing any `uv run` commands or tests. All `uv run` commands must be executed from the `backend` folder and not from the repository root.
 
 Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run`:
 1. `uv run ruff check --fix .`
