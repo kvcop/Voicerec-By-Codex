@@ -6,6 +6,7 @@ This repository contains both backend and frontend code for a local meeting tran
 ## Running Tests
 - Backend tests: run from inside the `backend` directory using `uv run pytest`.
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
+- Always run `uv sync` in the `backend` directory before executing any `uv run` commands or tests. All `uv run` commands must be executed from the `backend` folder and not from the repository root.
 
 Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run`:
 1. `uv run ruff check --fix .`
@@ -35,6 +36,7 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
+- Apply the repository pattern. Repository classes should reside in `backend/app/database/repositories/`.
 - When creating new tasks, aim for atomic pieces of work that do not overlap so
   multiple agents can operate in parallel.
 - If such isolation is impossible, explicitly list in the user response which
@@ -42,6 +44,7 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
   sequentially.
 
 ## Code Style
+
 ### Backend
 Use Google-style docstrings in English. Functions with more than two arguments
 must include an ``Args`` section. For complex return types or large functions,
@@ -49,8 +52,14 @@ add a ``Returns`` section. If a function explicitly raises an exception, include
 a ``Raises`` section. API endpoints are exempt because their logic should reside
 in service layers.
 
+- All functions must have explicit argument and return types.
+- Keep controllers (endpoints) thin; place the logic inside service classes.
+- Organize asynchronous functions and database access via repositories.
+
+
 ### Frontend
 - Write all React components as functional components using hooks.
 - Specify explicit TypeScript prop types for every component.
 - Follow the structure "component – folder – index.tsx" and use CSS modules
   for styles.
+  
