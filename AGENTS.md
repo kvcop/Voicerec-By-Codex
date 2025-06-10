@@ -35,6 +35,11 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
+- When creating new tasks, aim for atomic pieces of work that do not overlap so
+  multiple agents can operate in parallel.
+- If such isolation is impossible, explicitly list in the user response which
+  tasks may overlap or depend on one another and note that they must run
+  sequentially.
 
 ## Code Style
 Use Google-style docstrings in English. Functions with more than two arguments
