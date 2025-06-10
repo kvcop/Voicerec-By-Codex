@@ -1,7 +1,7 @@
 #
 # 3. PostgreSQL with password
 #
-apt install -y postgresql
+apt-get update && apt install -y postgresql
 service postgresql start
 
 # 3.1. Setting up password
