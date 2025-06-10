@@ -12,6 +12,8 @@ export default [
         ...js.configs.recommended.languageOptions?.globals,
         document: 'readonly',
         window: 'readonly',
+        localStorage: 'readonly',
+        navigator: 'readonly',
       },
     },
   },
