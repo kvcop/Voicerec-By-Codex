@@ -35,3 +35,10 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
+
+## Code Style
+Use Google-style docstrings in English. Functions with more than two arguments
+must include an ``Args`` section. For complex return types or large functions,
+add a ``Returns`` section. If a function explicitly raises an exception, include
+a ``Raises`` section. API endpoints are exempt because their logic should reside
+in service layers.
