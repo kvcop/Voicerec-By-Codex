@@ -14,6 +14,9 @@ This repository hosts a monorepo for a local meeting transcription service. It c
 The backend reads settings from a `.env` file using **pydantic-settings**. Create
 that file in the repository root and set the `DATABASE_URL` variable to configure
 the PostgreSQL connection.
+Communication with the GPU node must be secured via VPN or mTLS. See
+`docs/gpu_security.md` for details and refer to `.env.example` for the required
+environment variables.
 
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.
