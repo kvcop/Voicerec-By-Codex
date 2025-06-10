@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package services;
+
+service Diarize {
+  rpc Run (AudioRequest) returns (DiarizationResult);
+}
+
+message AudioRequest {
+  string path = 1;
+}
+
+message Segment {
+  float start = 1;
+  float end = 2;
+  string speaker = 3;
+}
+
+message DiarizationResult {
+  repeated Segment segments = 1;
+}
