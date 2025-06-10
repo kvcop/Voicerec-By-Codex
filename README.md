@@ -21,3 +21,33 @@ the PostgreSQL connection.
 3. Implement frontend UI with shadcn components.
 4. Integrate local ML models for speech-to-text and speaker identification (mocked in tests).
 5. Document database schema and overall process in `docs/`.
+
+## Testing
+
+The project contains tests for both backend and frontend parts. Run them after installing dependencies:
+
+```bash
+./install_deps.sh
+```
+
+### Backend
+
+Execute the following commands from the `backend` directory:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+uv run mypy .
+uv run pytest
+```
+
+### Frontend
+
+Navigate to the `frontend` directory and run:
+
+```bash
+npm run lint
+npm test
+```
+
+Frontend tests use **vitest** and the configuration resides in `frontend/vitest.config.ts`.
