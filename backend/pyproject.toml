@@ -1,0 +1,93 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncpg>=0.30.0",
+    "fastapi>=0.115.12",
+    "httpx>=0.28.1",
+    "sqlalchemy>=2.0.41",
+    "uvicorn>=0.34.3",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.0",
+    "pytest>=8.4.0",
+    "ruff>=0.11.13",
+]
+
+[tool.ruff]
+line-length = 100
+required-version = "0.11.13"
+target-version = "py310"
+extend-exclude = ["migrations", "scripts"]
+
+[tool.ruff.lint]
+dummy-variable-rgx = "^_$"
+select = ["ALL"]
+ignore = [
+    "D105",
+    # D4..
+    "D401",
+    "D403",
+    "D404",
+
+    # others
+    "S311",
+    "FBT",
+    "G",
+    # TD
+    "TD001",
+    "TD002",
+    "TD003",
+    # FIX, ERA
+    "FIX",
+    "ERA",
+    # TRY
+    "TRY400",
+    "TRY401",
+    # RUF
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # init
+    "D107",
+    "ANN204",
+    # formatter incompatible
+    "COM812",
+    "ISC001",
+    # sql
+    "S608",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "single"
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+[tool.mypy]
+python_version = "3.13"
+exclude = ["^migrations/$", "^venv/$"]
+plugins = ["pydantic.mypy"]
+
