@@ -4,13 +4,13 @@
 This repository contains both backend and frontend code for a local meeting transcription service. All heavy ML models must be mocked in tests.
 
 ## Running Tests
-- Backend tests: `pytest` inside `backend` directory.
+- Backend tests: run from inside the `backend` directory using `uv run pytest`.
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
 
-Prior to running tests, run code linters and static analysis in the following order:
-1. `ruff check backend --fix`
-2. `ruff format backend`
-3. `mypy backend`
+Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run`:
+1. `uv run ruff check --fix .`
+2. `uv run ruff format .`
+3. `uv run mypy .` *(execution may take a long time and that is expected)*
 4. `npm run lint` for the frontend.
 
 We are adventurers and do not look for easy ways. Do **not** add ignore directives for `mypy` or `ruff`. If an error cannot be solved, add a question in `QUESTIONS.md`.
