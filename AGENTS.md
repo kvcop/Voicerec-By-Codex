@@ -24,6 +24,7 @@ The `docs/` folder must always contain current documentation. Update it whenever
 - Overall process flow of the service.
 - File system structure if relevant.
 Always keep diagrams up to date. Update `docs/` with any changes in database or process logic.
+After every code change, check whether the documentation requires updates and keep it synchronized with the implementation.
 
 ## Questions and Answers
 `QUESTIONS.md` always exists. Read it before starting work. If the owner answered any previous questions, incorporate the information, mark them as resolved, and add new questions if needed.

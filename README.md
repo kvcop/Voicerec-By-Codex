@@ -5,7 +5,7 @@ This repository hosts a monorepo for a local meeting transcription service. It c
 ## Structure
 - `backend/` – FastAPI application and tests
 - `frontend/` – React application using Vite
-- `docs/` – documentation and diagrams
+- `docs/` – documentation and mermaid diagrams in `.md` files
 - `install_deps.sh` – install Python and Node dependencies using `uv` and `npm`
 - `AGENTS.md` – instructions for Codex agents
 - `QUESTIONS.md` – ongoing Q&A with the repository owner
