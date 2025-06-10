@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package services;
+
+service Transcribe {
+  rpc Run (AudioRequest) returns (Transcript);
+}
+
+message AudioRequest {
+  string path = 1;
+}
+
+message Transcript {
+  string text = 1;
+}

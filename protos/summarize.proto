@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package services;
+
+service Summarize {
+  rpc Run (TextRequest) returns (Summary);
+}
+
+message TextRequest {
+  string text = 1;
+}
+
+message Summary {
+  string text = 1;
+}

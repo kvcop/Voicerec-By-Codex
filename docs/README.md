@@ -15,3 +15,7 @@
 Для работы с GPU-нодой задайте `GPU_GRPC_HOST`, `GPU_GRPC_PORT` и параметры TLS:
 `GPU_GRPC_USE_TLS`, `GPU_GRPC_TLS_CA`, `GPU_GRPC_TLS_CERT`, `GPU_GRPC_TLS_KEY`.
 
+## GPU services
+Для локального запуска мок-версий моделей используйте файл `infra/docker-compose.gpu.yml`.
+Он поднимает контейнеры `asr`, `speaker` и `summarizer` с интерфейсом gRPC.
+
