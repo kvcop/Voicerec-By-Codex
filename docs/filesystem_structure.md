@@ -7,4 +7,5 @@ graph TD
     A[Корень проекта] --> B[backend/]
     A --> C[frontend/]
     A --> D[docs/]
+    A --> E[data/raw/]
 ```
