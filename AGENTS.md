@@ -47,3 +47,8 @@ must include an ``Args`` section. For complex return types or large functions,
 add a ``Returns`` section. If a function explicitly raises an exception, include
 a ``Raises`` section. API endpoints are exempt because their logic should reside
 in service layers.
+
+### Backend
+- All functions must have explicit argument and return types.
+- Keep controllers (endpoints) thin; place the logic inside service classes.
+- Organize asynchronous functions and database access via repositories.
