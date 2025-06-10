@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-# Python dependencies
+#
+# 1. Python dependencies
+#
 if [ -f backend/pyproject.toml ]; then
     cd backend && \
     uv venv && \
@@ -11,7 +13,9 @@ if [ -f backend/pyproject.toml ]; then
     cd -
 fi
 
-# Node dependencies
+#
+# 2. Node dependencies
+#
 if [ -f frontend/package.json ]; then
     cd frontend && npm install && cd -
 fi
