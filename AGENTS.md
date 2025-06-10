@@ -35,6 +35,7 @@ The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without e
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
+- Apply the repository pattern. Repository classes should reside in `backend/app/database/repositories/`.
 - When creating new tasks, aim for atomic pieces of work that do not overlap so
   multiple agents can operate in parallel.
 - If such isolation is impossible, explicitly list in the user response which
