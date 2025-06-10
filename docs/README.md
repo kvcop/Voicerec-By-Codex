@@ -19,3 +19,12 @@
 Для локального запуска мок-версий моделей используйте файл `infra/docker-compose.gpu.yml`.
 Он поднимает контейнеры `asr`, `speaker` и `summarizer` с интерфейсом gRPC.
 
+
+## Компиляция proto-файлов
+Для генерации Python-модулей воспользуйтесь пакетом `grpcio-tools`. Запустите команду:
+
+```bash
+python -m grpc_tools.protoc -I ./protos --python_out=./backend/app/protos --grpc_python_out=./backend/app/protos ./protos/*.proto
+```
+
+При необходимости создайте папку `backend/app/protos`. В ней появятся файлы `*_pb2.py` и `*_pb2_grpc.py`, которые затем можно импортировать в коде.
