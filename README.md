@@ -1,7 +1,7 @@
 # Voicerec-By-Codex
 
 This repository hosts a monorepo for a local meeting transcription service. It contains a Python backend built with FastAPI and SQLAlchemy and a React frontend powered by Vite.
-**Note:** A secure storage milestone is scheduled for completion by the end of 2025.
+**Note:** A secure storage milestone is scheduled for completion by the end of 2025. Raw audio is temporarily stored in `data/raw/` and must be migrated to the secure storage by that deadline.
 
 ## Structure
 - `backend/` – FastAPI application and tests
@@ -18,6 +18,9 @@ the PostgreSQL connection.
 Communication with the GPU node must be secured via VPN or mTLS. See
 `docs/gpu_security.md` for details and refer to `.env.example` for the required
 environment variables.
+
+## Mock GPU Services
+`infra/docker-compose.gpu.yml` launches CPU-only mock containers that emulate the GPU-backed models. Run `docker compose -f infra/docker-compose.gpu.yml up` during development to start `asr`, `speaker`, and `summarizer` services locally.
 
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.
