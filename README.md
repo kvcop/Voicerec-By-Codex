@@ -1,6 +1,7 @@
 # Voicerec-By-Codex
 
 This repository hosts a monorepo for a local meeting transcription service. It contains a Python backend built with FastAPI and SQLAlchemy and a React frontend powered by Vite.
+**Note:** A secure storage milestone is scheduled for completion by the end of 2025.
 
 ## Structure
 - `backend/` – FastAPI application and tests
@@ -54,3 +55,7 @@ npm test
 ```
 
 Frontend tests use **vitest** and the configuration resides in `frontend/vitest.config.ts`.
+
+## Future Milestones
+- Secure storage for transcripts with encryption at rest is scheduled for completion by the end of 2025.
+

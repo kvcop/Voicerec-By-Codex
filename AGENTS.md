@@ -32,6 +32,27 @@ After every code change, check whether the documentation requires updates and ke
 
 The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without explicit user instruction.
 
+## Requesting Advanced Research
+If you need additional analysis that exceeds the scope of the repository documentation,
+you may ask the owner to run more capable models: **"o3 pro"** or **"deep research"**.
+Include your question in `QUESTIONS.md` and clearly state which model you are
+requesting. Responses from "o3 pro" usually take about 10–20 minutes while
+"deep research" can take around 20 minutes for a thorough answer.
+
+Only the repository owner should paste the research outcomes into
+`QUESTIONS.md`. Provide an empty placeholder below your question where the owner
+can insert the results, for example:
+
+```
+### Research: <topic>
+<your question>
+<!-- OWNER: paste research answer here -->
+```
+
+Whenever research has been requested or previously completed, mention it in your
+response or pull request so the owner can link any new context to the correct
+discussion thread.
+
 ## Notes for Future Agents
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
