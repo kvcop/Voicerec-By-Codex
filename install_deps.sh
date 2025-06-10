@@ -3,11 +3,11 @@ set -e
 
 # Python dependencies
 if [ -f backend/pyproject.toml ]; then
-    cd backend
-    uv venv
-    source .venv/bin/activate
-    uv pip install -e .
-    uv sync
+    cd backend && \
+    uv venv && \
+    uv sync && \
+    uv pip install -e . && \
+    source .venv/bin/activate && \
     cd -
 fi
 
