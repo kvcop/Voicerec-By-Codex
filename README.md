@@ -10,6 +10,11 @@ This repository hosts a monorepo for a local meeting transcription service. It c
 - `AGENTS.md` – instructions for Codex agents
 - `QUESTIONS.md` – ongoing Q&A with the repository owner
 
+## Configuration
+The backend reads settings from a `.env` file using **pydantic-settings**. Create
+that file in the repository root and set the `DATABASE_URL` variable to configure
+the PostgreSQL connection.
+
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.
 2. Add authentication and database models.
