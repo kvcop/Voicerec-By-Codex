@@ -12,8 +12,9 @@
 ## Переменные окружения
 Настройки приложения берутся из файла `.env`, расположенного в корне репозитория.
 Укажите переменную `DATABASE_URL` для подключения к базе данных.
-Для работы с GPU-нодой задайте `GPU_GRPC_HOST`, `GPU_GRPC_PORT` и параметры TLS:
-`GPU_GRPC_USE_TLS`, `GPU_GRPC_TLS_CA`, `GPU_GRPC_TLS_CERT`, `GPU_GRPC_TLS_KEY`.
+Параметры подключения к GPU-ноде собраны в классе `GPUSettings` и имеют префикс
+`GPU_`: `GRPC_HOST`, `GRPC_PORT`, `GRPC_USE_TLS`, `GRPC_TLS_CA`,
+`GRPC_TLS_CERT`, `GRPC_TLS_KEY`.
 
 ## GPU services
 Для локального запуска мок-версий моделей используйте файл `infra/docker-compose.gpu.yml`.
