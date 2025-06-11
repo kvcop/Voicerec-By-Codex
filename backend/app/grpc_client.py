@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
@@ -40,3 +41,47 @@ class MockSummarizeClient:
     async def run(self, _: str) -> dict[str, Any]:
         """Return summary data from fixture."""
         return json.loads(self._fixture_path.read_text(encoding='utf-8'))
+
+
+Client = MockTranscribeClient | MockDiarizeClient | MockSummarizeClient
+
+
+def create_grpc_client(
+    service: str,
+    fixture_path: Path,
+    client_type: str | None = None,
+) -> Client:
+    """Return a mock gRPC client instance.
+
+    Args:
+        service: Name of the service to use. Supported values are
+            ``transcribe``, ``diarize`` and ``summarize``.
+        fixture_path: Path to the response fixture.
+        client_type: Optional client implementation type. If ``None`` the
+            ``GRPC_CLIENT_TYPE`` environment variable is used. Only ``mock`` is
+            supported at the moment.
+
+    Returns:
+        Instantiated gRPC client ready for calls.
+
+    Raises:
+        ValueError: If ``client_type`` or ``service`` is invalid.
+    """
+    client_type = client_type or os.getenv('GRPC_CLIENT_TYPE', 'mock')
+    if client_type != 'mock':
+        message = f'Unsupported client type: {client_type}'
+        raise ValueError(message)
+
+    mapping: dict[str, type[Client]] = {
+        'transcribe': MockTranscribeClient,
+        'diarize': MockDiarizeClient,
+        'summarize': MockSummarizeClient,
+    }
+
+    try:
+        client_cls = mapping[service]
+    except KeyError as exc:
+        message = f'Unknown service: {service}'
+        raise ValueError(message) from exc
+
+    return client_cls(fixture_path)
