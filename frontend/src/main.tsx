@@ -1,21 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { NextIntlClientProvider, useTranslations } from 'next-intl';
+import { NextIntlClientProvider } from 'next-intl';
 import en from './locales/en.json';
 import ru from './locales/ru.json';
-import Dialog from './components/Dialog';
-
-export function App() {
-  const t = useTranslations();
-  return (
-    <div>
-      <h1>{t('title')}</h1>
-      <Dialog triggerText={t('openDialog')}>
-        <p>{t('dialogText')}</p>
-      </Dialog>
-    </div>
-  );
-}
+import { App } from './components/App';
 
 const messages = { en, ru } as const;
 
