@@ -2,7 +2,7 @@
 
 from functools import cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +31,14 @@ class GPUSettings(BaseSettings):
         None,
         description='Path to the client private key',
     )
+
+    @model_validator(mode='after')
+    def _check_tls(self: 'GPUSettings') -> 'GPUSettings':
+        """Ensure certificate paths are provided when TLS is enabled."""
+        if self.grpc_use_tls and not all([self.grpc_tls_ca, self.grpc_tls_cert, self.grpc_tls_key]):
+            message = 'TLS enabled but certificate paths are missing'
+            raise ValueError(message)
+        return self
 
     model_config = SettingsConfigDict(
         env_prefix='GPU_',

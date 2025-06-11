@@ -14,7 +14,8 @@
 Укажите переменную `DATABASE_URL` для подключения к базе данных.
 Параметры подключения к GPU-ноде собраны в классе `GPUSettings` и имеют префикс
 `GPU_`: `GRPC_HOST`, `GRPC_PORT`, `GRPC_USE_TLS`, `GRPC_TLS_CA`,
-`GRPC_TLS_CERT`, `GRPC_TLS_KEY`.
+`GRPC_TLS_CERT`, `GRPC_TLS_KEY`. Если `GPU_GRPC_USE_TLS=true`, пути к
+сертификатам обязательны.
 
 ## GPU services
 Для локального запуска мок-версий моделей используйте файл `infra/docker-compose.gpu.yml`.
