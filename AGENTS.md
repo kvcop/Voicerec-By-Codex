@@ -1,7 +1,7 @@
 # Instructions for Codex Agents
 
 ## Overview
-This repository contains both backend and frontend code for a local meeting transcription service. All heavy ML models must be mocked in tests.
+This repository contains both backend and frontend code for a local meeting transcription service. All heavy ML models remain mocked in tests.
 
 ## Running Tests
 - Backend tests: run from inside the `backend` directory using `uv run pytest`.
@@ -32,11 +32,36 @@ After every code change, check whether the documentation requires updates and ke
 
 The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without explicit user instruction.
 
+## Requesting Advanced Research
+If you need additional analysis that exceeds the scope of the repository documentation,
+you may ask the owner to run more capable models: **"o3"**, **"o3 pro"** or **"deep research"**.
+Responses from "o3" arrive in roughly 1–3 minutes, "o3 pro" in about 10–20 minutes,
+and "deep research" in around 20 minutes. Submit your question in English if you
+want the answer in English and clearly state which model you are requesting.
+Include your question in `QUESTIONS.md` with an empty placeholder where the owner
+can insert the results. Agents without write access may ask the owner directly to
+run the research on their behalf.
+
+Only the repository owner should paste the research outcomes into
+`QUESTIONS.md`. Provide an empty placeholder below your question where the owner
+can insert the results, for example:
+
+```
+### Research: <topic>
+<your question>
+<!-- OWNER: paste research answer here -->
+```
+
+Whenever research has been requested or previously completed, mention it in your
+response or pull request so the owner can link any new context to the correct
+discussion thread.
+
 ## Notes for Future Agents
 - Do not commit `node_modules` or other large binaries.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
 - Apply the repository pattern. Repository classes should reside in `backend/app/database/repositories/`.
+- Instantiate gRPC clients through a factory so tests can swap in mocks easily.
 - When creating new tasks, aim for atomic pieces of work that do not overlap so
   multiple agents can operate in parallel.
 - If such isolation is impossible, explicitly list in the user response which

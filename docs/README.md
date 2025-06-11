@@ -6,8 +6,26 @@
 - **database_diagram.md** – диаграмма базы данных (mermaid)
 - **process_overview.md** – общая схема работы сервиса (mermaid)
 - **filesystem_structure.md** – схема использования файловой системы (mermaid)
+- **gpu_security.md** – варианты защиты подключения к GPU-ноде
+- **secure_storage_todo.md** – требования к защищённому хранилищу
 
 ## Переменные окружения
 Настройки приложения берутся из файла `.env`, расположенного в корне репозитория.
 Укажите переменную `DATABASE_URL` для подключения к базе данных.
+Для работы с GPU-нодой задайте `GPU_GRPC_HOST`, `GPU_GRPC_PORT` и параметры TLS:
+`GPU_GRPC_USE_TLS`, `GPU_GRPC_TLS_CA`, `GPU_GRPC_TLS_CERT`, `GPU_GRPC_TLS_KEY`.
 
+## GPU services
+Для локального запуска мок-версий моделей используйте файл `infra/docker-compose.gpu.yml`.
+Он поднимает контейнеры `asr`, `speaker` и `summarizer` с интерфейсом gRPC.
+Все исходные аудио сохраняются во временную папку `data/raw/`. Эти файлы нужно
+перенести в защищённое хранилище до конца 2025 года.
+
+## Компиляция proto-файлов
+Для генерации Python-модулей воспользуйтесь пакетом `grpcio-tools`. Запустите команду:
+
+```bash
+python -m grpc_tools.protoc -I ./protos --python_out=./backend/app/protos --grpc_python_out=./backend/app/protos ./protos/*.proto
+```
+
+При необходимости создайте папку `backend/app/protos`. В ней появятся файлы `*_pb2.py` и `*_pb2_grpc.py`, которые затем можно импортировать в коде.
