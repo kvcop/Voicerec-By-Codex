@@ -1,6 +1,10 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+
 import { useTranslations } from '../../i18n';
+=======
+import { useTranslations } from 'next-intl';
+
 import styles from './styles.module.css';
 
 type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {

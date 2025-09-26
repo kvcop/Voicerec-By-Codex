@@ -32,7 +32,9 @@ Always keep diagrams up to date. Update `docs/` with any changes in database or 
 After every code change, check whether the documentation requires updates and keep it synchronized with the implementation.
 
 ## Questions and Answers
-`QUESTIONS.md` always exists. Read it before starting work. If the owner answered any previous questions, incorporate the information, mark them as resolved, and add new questions if needed.
+`QUESTIONS.md` always exists. Read it before starting work. If the owner answered any previous questions, incorporate the information, mark them as resolved, and add new questions if needed. For the completed work you should remove paragraphs or whole questions with their answers in the `QUESTIONS.md`.
+
+`LATEST_RESEARCH.md` should exist. It contains latest information about the project with the date specified and version. You should use it whenever possible.
 
 The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without explicit user instruction.
 
