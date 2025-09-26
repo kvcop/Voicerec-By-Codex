@@ -5,11 +5,12 @@ import ru from '../locales/ru.json';
 export const messages = { en, ru } as const;
 export type Locale = keyof typeof messages;
 type AppMessages = (typeof messages)[Locale];
+type LocaleChangeHandler = React.Dispatch<Locale>;
 
 interface TranslationContextValue {
   locale: Locale;
   messages: AppMessages;
-  setLocale: (nextLocale: Locale) => void;
+  setLocale: LocaleChangeHandler;
 }
 
 const TranslationContext = React.createContext<TranslationContextValue | undefined>(
@@ -18,7 +19,7 @@ const TranslationContext = React.createContext<TranslationContextValue | undefin
 
 export interface TranslationProviderProps {
   locale: Locale;
-  onLocaleChange: (nextLocale: Locale) => void;
+  onLocaleChange: LocaleChangeHandler;
   children: React.ReactNode;
 }
 
