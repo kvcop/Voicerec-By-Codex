@@ -96,6 +96,17 @@ def test_upload_rejects_non_wav(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert not list(tmp_path.iterdir())
 
 
+def test_upload_accepts_mixed_case_mime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mixed-case WAV MIME types are accepted."""
+    monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
+
+    response = client.post('/upload', files={'file': ('audio.wav', b'abc', 'audio/WAV')})
+
+    assert response.status_code == HTTPStatus.OK
+    assert 'meeting_id' in response.json()
+    assert list(tmp_path.iterdir())
+
+
 def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Large uploads are streamed to disk without buffering entire payload."""
     meeting_id = 'big'

@@ -34,7 +34,8 @@ RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 @router.post('/upload')
 async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
-    if file.content_type not in ALLOWED_WAV_MIME_TYPES:
+    content_type = (file.content_type or '').lower()
+    if content_type not in ALLOWED_WAV_MIME_TYPES:
         raise HTTPException(
             status_code=HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
             detail='Only WAV audio is supported.',
