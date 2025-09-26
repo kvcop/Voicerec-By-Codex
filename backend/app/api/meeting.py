@@ -15,7 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
 router = APIRouter()
 
 # Directory for raw audio files.
-RAW_DATA_DIR = Path(__file__).resolve().parents[2] / 'data' / 'raw'
+RAW_DATA_DIR = Path(__file__).resolve().parents[3] / 'data' / 'raw'
 RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 

@@ -19,6 +19,13 @@ if TYPE_CHECKING:  # pragma: no cover - imports for type hints
 client = TestClient(app)
 
 
+def test_raw_data_dir_default_location() -> None:
+    """Default storage path resides under repository data/raw."""
+    raw_dir = meeting.RAW_DATA_DIR
+    assert raw_dir.parts[-2:] == ('data', 'raw')
+    assert raw_dir.is_dir()
+
+
 def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Uploading audio saves file and returns meeting id."""
     meeting_id = 'abc123'
