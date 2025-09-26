@@ -64,6 +64,7 @@ discussion thread.
 
 ## Notes for Future Agents
 - Do not commit `node_modules` or other large binaries.
+- Do not add `package-lock.json` or `uv.lock` back into version control; both files are generated automatically and must remain ignored to avoid merge conflicts.
 - Heavy ML models should be mocked; see `backend/tests` for examples.
 - Database uses PostgreSQL via SQLAlchemy. Connection string defined in `backend/app/db/session.py`.
 - Apply the repository pattern. Repository classes should reside in `backend/app/database/repositories/`.

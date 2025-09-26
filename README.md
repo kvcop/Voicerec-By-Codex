@@ -22,10 +22,25 @@ environment variables.
 ## Mock GPU Services
 `infra/docker-compose.gpu.yml` launches CPU-only mock containers that emulate the GPU-backed models. Run `docker compose -f infra/docker-compose.gpu.yml up` during development to start `asr`, `speaker`, and `summarizer` services locally.
 
+## PostgreSQL Containers
+Use Docker Compose to start a local PostgreSQL instance with credentials that match the default `.env` configuration:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml up -d postgres
+```
+
+Continuous integration environments can reuse the stripped-down definition:
+
+```bash
+docker compose -f infra/docker-compose.ci.yml up -d postgres
+```
+
+Both configurations expose the `voicerec` database and ship with health checks based on `pg_isready`.
+
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.
 2. Add authentication and database models.
-3. Implement frontend UI with shadcn components.
+3. Implement frontend UI with Radix UI primitives and CSS modules.
 4. Integrate local ML models for speech-to-text and speaker identification (mocked in tests).
 5. Document database schema and overall process in `docs/`.
 

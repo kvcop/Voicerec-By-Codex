@@ -10,7 +10,6 @@ async def test_async_session_uses_temp_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Ensure temporary DATABASE_URL is respected when requesting a session."""
-
     temp_url = 'postgresql+asyncpg://user:pass@localhost/temp_db'
     monkeypatch.setenv('GPU_GRPC_HOST', 'localhost')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
