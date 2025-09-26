@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         alias='DATABASE_URL',
         description='Database connection string',
     )
-    gpu: GPUSettings = GPUSettings()
+    gpu: GPUSettings = Field(default_factory=GPUSettings)
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 
