@@ -14,4 +14,5 @@ venv/
 # Others
 .DS_Store
 backend/tests/__pycache__/
+backend/uv.lock
 
