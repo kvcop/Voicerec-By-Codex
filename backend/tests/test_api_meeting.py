@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi.testclient import TestClient
@@ -12,11 +13,19 @@ from app.main import app
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from collections.abc import AsyncGenerator
-    from pathlib import Path
 
     import pytest
 
 client = TestClient(app)
+
+
+def test_raw_data_dir_default_location() -> None:
+    """Default storage path resides under repository data/raw."""
+    raw_dir = meeting.RAW_DATA_DIR
+    repo_root = Path(__file__).resolve().parents[2]
+    assert raw_dir == repo_root / 'data' / 'raw'
+    assert 'backend' not in raw_dir.parts
+    assert raw_dir.is_dir()
 
 
 def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
