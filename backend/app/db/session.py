@@ -1,7 +1,7 @@
 """Database session helpers."""
 
 from collections.abc import AsyncGenerator
-from typing import Optional
+from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -12,10 +12,16 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.settings import get_settings
 
-_engine: Optional[AsyncEngine] = None
-_engine_url: Optional[str] = None
-_session_factory: Optional[async_sessionmaker[AsyncSession]] = None
-_session_factory_url: Optional[str] = None
+
+@dataclass
+class _EngineCache:
+    engine: AsyncEngine | None = None
+    engine_url: str | None = None
+    session_factory: async_sessionmaker[AsyncSession] | None = None
+    session_factory_url: str | None = None
+
+
+_CACHE = _EngineCache()
 
 
 def get_engine() -> AsyncEngine:
@@ -28,14 +34,11 @@ def get_engine() -> AsyncEngine:
     Returns:
         An ``AsyncEngine`` instance configured with the current database URL.
     """
-
-    global _engine, _engine_url
-
     database_url = get_settings().database_url
-    if _engine is None or _engine_url != database_url:
-        _engine = create_async_engine(database_url, echo=True)
-        _engine_url = database_url
-    return _engine
+    if _CACHE.engine is None or _CACHE.engine_url != database_url:
+        _CACHE.engine = create_async_engine(database_url, echo=True)
+        _CACHE.engine_url = database_url
+    return _CACHE.engine
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
@@ -44,19 +47,15 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     Returns:
         An ``async_sessionmaker`` bound to the cached engine.
     """
-
-    global _session_factory, _session_factory_url
-
     engine = get_engine()
-    if _session_factory is None or _session_factory_url != _engine_url:
-        _session_factory = async_sessionmaker(engine, expire_on_commit=False)
-        _session_factory_url = _engine_url
-    return _session_factory
+    if _CACHE.session_factory is None or _CACHE.session_factory_url != _CACHE.engine_url:
+        _CACHE.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        _CACHE.session_factory_url = _CACHE.engine_url
+    return _CACHE.session_factory
 
 
 def AsyncSessionLocal() -> AsyncSession:  # noqa: N802 - preserve existing name
     """Return an async session using the lazily constructed factory."""
-
     session_factory = get_session_factory()
     return session_factory()
 
@@ -67,7 +66,6 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     Returns:
         An async generator yielding an ``AsyncSession``.
     """
-
     async with AsyncSessionLocal() as session:
         yield session
 
@@ -78,11 +76,8 @@ def reset_engine_cache() -> None:
     This helper disposes of the lazy singletons so tests can swap the
     ``DATABASE_URL`` environment variable before requesting a new session.
     """
-
-    global _engine, _engine_url, _session_factory, _session_factory_url
-
-    _engine = None
-    _engine_url = None
-    _session_factory = None
-    _session_factory_url = None
+    _CACHE.engine = None
+    _CACHE.engine_url = None
+    _CACHE.session_factory = None
+    _CACHE.session_factory_url = None
     get_settings.cache_clear()
