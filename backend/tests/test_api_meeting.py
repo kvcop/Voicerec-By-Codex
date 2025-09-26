@@ -20,9 +20,9 @@ if TYPE_CHECKING:  # pragma: no cover - imports for type hints
 client = TestClient(app)
 
 
-def test_raw_data_dir_default_location() -> None:
-    """Default storage path resides under repository data/raw."""
-    raw_dir = meeting.RAW_DATA_DIR
+def test_raw_audio_dir_default_location() -> None:
+    """Default raw audio storage path resides under repository data/raw."""
+    raw_dir = meeting.RAW_AUDIO_DIR
     repo_root = Path(__file__).resolve().parents[2]
     assert raw_dir == repo_root / 'data' / 'raw'
     assert 'backend' not in raw_dir.parts
