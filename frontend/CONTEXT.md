@@ -1,10 +1,10 @@
 # Frontend - Component Context
 
 ## Purpose
-React-based web application for meeting transcription interface. Provides audio upload, real-time transcript display, speaker identification visualization, and meeting management. Built with TypeScript, Vite, and shadcn/ui components.
+React-based web application for meeting transcription interface. Provides audio upload, real-time transcript display, speaker identification visualization, and meeting management. Built with TypeScript, Vite, Radix UI primitives, and CSS modules.
 
 ## Current Status: Initial Setup
-Frontend scaffolding established with React 18, TypeScript, and Vite. Basic component structure with App and Dialog components. Internationalization support with English and Russian locales via a lightweight custom provider. UI component library (shadcn) integrated but not fully utilized yet.
+Frontend scaffolding established with React 18, TypeScript, and Vite. Basic component structure with App and Dialog components. Internationalization support with English and Russian locales via a lightweight custom provider. Styling relies on CSS modules alongside Radix UI for accessible primitives.
 
 ## Component-Specific Development Guidelines
 
@@ -32,8 +32,8 @@ components/
 
 ### Styling Approach
 - **CSS Modules** for component isolation
-- **Tailwind utilities** via shadcn/ui
-- **Consistent spacing** using Tailwind classes
+- **Radix UI primitives** for accessible interactions
+- **Consistent spacing** codified in component stylesheets
 - **Dark mode support** (future)
 
 ## Major Subsystem Organization
@@ -115,10 +115,9 @@ class ErrorBoundary extends React.Component {
 - **WebSocket** for real-time updates (future)
 
 ### External Libraries
-- **shadcn/ui**: Component library
-- **Radix UI**: Headless components
-- **class-variance-authority**: Dynamic styling
-- **tailwind-merge**: Class name management
+- **Radix UI**: Headless components for dialogs and future primitives
+- **React & React DOM**: Core UI rendering
+- **React Testing Library**: Interaction-focused tests
 
 ### Browser APIs
 - **File API** for audio upload

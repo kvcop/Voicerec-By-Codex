@@ -40,7 +40,7 @@ Both configurations expose the `voicerec` database and ship with health checks b
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.
 2. Add authentication and database models.
-3. Implement frontend UI with shadcn components.
+3. Implement frontend UI with Radix UI primitives and CSS modules.
 4. Integrate local ML models for speech-to-text and speaker identification (mocked in tests).
 5. Document database schema and overall process in `docs/`.
 
