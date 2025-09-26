@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from typing import TYPE_CHECKING, Any
@@ -21,7 +22,7 @@ class MockTranscribeClient:
         """Return transcript data from fixture."""
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
-        return self._cached_data  # type: ignore[return-value]
+        return copy.deepcopy(self._cached_data)
 
 
 class MockDiarizeClient:
@@ -35,7 +36,7 @@ class MockDiarizeClient:
         """Return diarization data from fixture."""
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
-        return self._cached_data  # type: ignore[return-value]
+        return copy.deepcopy(self._cached_data)
 
 
 class MockSummarizeClient:
@@ -49,7 +50,7 @@ class MockSummarizeClient:
         """Return summary data from fixture."""
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
-        return self._cached_data  # type: ignore[return-value]
+        return copy.deepcopy(self._cached_data)
 
 
 Client = MockTranscribeClient | MockDiarizeClient | MockSummarizeClient
