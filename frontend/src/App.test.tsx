@@ -23,4 +23,23 @@ describe('language switch', () => {
     expect(screen.getByRole('heading').textContent).toBe('Voicerec');
     await waitFor(() => expect(localStorage.getItem('lang')).toBe('en'));
   });
+
+  it('updates close button text when language changes', async () => {
+    render(<Root />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open Dialog' }));
+    const closeButtonEn = await screen.findByRole('button', { name: 'Close' });
+    expect(closeButtonEn.textContent).toBe('Close');
+
+    await userEvent.click(closeButtonEn);
+
+    await userEvent.click(screen.getByTestId('switch'));
+    await waitFor(() =>
+      expect(screen.getByRole('heading').textContent).toBe('Войсерек')
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть диалог' }));
+    const closeButtonRu = await screen.findByRole('button', { name: 'Закрыть' });
+    expect(closeButtonRu.textContent).toBe('Закрыть');
+  });
 });

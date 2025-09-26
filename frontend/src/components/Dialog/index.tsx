@@ -1,5 +1,6 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { useTranslations } from 'next-intl';
 import styles from './styles.module.css';
 
 type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
@@ -8,6 +9,8 @@ type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
 };
 
 export function Dialog({ triggerText, children, ...props }: DialogProps) {
+  const t = useTranslations();
+
   return (
     <DialogPrimitive.Root {...props}>
       <DialogPrimitive.Trigger className={styles.trigger}>
@@ -18,7 +21,7 @@ export function Dialog({ triggerText, children, ...props }: DialogProps) {
         <DialogPrimitive.Content className={styles.content}>
           {children}
           <DialogPrimitive.Close className={styles.close}>
-            Close
+            {t('closeDialog')}
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
