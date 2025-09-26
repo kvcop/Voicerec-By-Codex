@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
+
+from app.services import TranscriptService, get_transcript_service
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator
@@ -38,17 +40,12 @@ async def _event_generator(
 
 
 @router.get('/stream/{meeting_id}')
-async def stream_transcript(meeting_id: str) -> StreamingResponse:
+async def stream_transcript(
+    meeting_id: str,
+    service: TranscriptService = Depends(get_transcript_service),
+) -> StreamingResponse:
     """Stream transcript updates via SSE."""
-    service = TranscriptService()
-    return StreamingResponse(_event_generator(meeting_id, service), media_type='text/event-stream')
-
-
-class TranscriptService:
-    """Service layer for transcript streaming."""
-
-    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[str, None]:
-        """Yield transcript fragments for the given meeting."""
-        if False:  # pragma: no cover - placeholder for real implementation
-            yield meeting_id
-        return
+    return StreamingResponse(
+        _event_generator(meeting_id, service),
+        media_type='text/event-stream',
+    )

@@ -9,6 +9,12 @@ from fastapi.testclient import TestClient
 
 from app.api import meeting
 from app.main import app
+from app.services import (
+    TranscriptRepositoryProtocol,
+    TranscriptService,
+    TranscribeClientProtocol,
+    get_transcript_service,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from collections.abc import AsyncGenerator
@@ -41,14 +47,34 @@ async def _fake_stream(_: str) -> AsyncGenerator[str, None]:
     yield 'world'
 
 
-def test_stream(monkeypatch: pytest.MonkeyPatch) -> None:
-    """SSE endpoint streams transcript fragments."""
-    monkeypatch.setattr(
-        meeting.TranscriptService,
-        'stream_transcript',
-        lambda _, meeting_id: _fake_stream(meeting_id),
-    )
+class _FakeTranscriptRepository(TranscriptRepositoryProtocol):
+    async def save_fragment(self, meeting_id: str, text: str) -> None:  # pragma: no cover - stub
+        return None
 
-    with client.stream('GET', '/stream/xyz') as response:
-        lines = [line for line in response.iter_lines() if line]
-    assert lines == ['data: hello', 'data: world']
+
+class _FakeTranscribeClient(TranscribeClientProtocol):
+    async def run(self, audio_path: Path) -> dict[str, str]:  # pragma: no cover - stub
+        return {'audio_path': str(audio_path)}
+
+
+class _FakeTranscriptService(TranscriptService):
+    def __init__(self) -> None:  # pragma: no cover - simple stub
+        super().__init__(_FakeTranscriptRepository(), _FakeTranscribeClient())
+
+    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[str, None]:
+        async for fragment in _fake_stream(meeting_id):
+            yield fragment
+
+
+def test_stream() -> None:
+    """SSE endpoint streams transcript fragments."""
+
+    app.dependency_overrides[get_transcript_service] = lambda: _FakeTranscriptService()
+
+    try:
+        with client.stream('GET', '/stream/xyz') as response:
+            lines = [line for line in response.iter_lines() if line]
+
+        assert lines == ['data: hello', 'data: world']
+    finally:
+        app.dependency_overrides.pop(get_transcript_service, None)

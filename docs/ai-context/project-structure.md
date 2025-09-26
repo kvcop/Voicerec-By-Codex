@@ -83,6 +83,9 @@ Voicerec-By-Codex/
 │   │   ├── api/                        # API endpoints layer
 │   │   │   ├── __init__.py             # API package initialization
 │   │   │   └── meeting.py              # Meeting/transcript endpoints
+│   │   ├── services/                   # Business logic services
+│   │   │   ├── __init__.py             # Service package exports
+│   │   │   └── transcript_service.py   # Transcript orchestration service
 │   │   ├── core/                       # Core configuration and utilities
 │   │   │   ├── __init__.py             # Core package initialization
 │   │   │   └── settings.py             # Pydantic settings (DB, GPU config)
@@ -156,6 +159,8 @@ Voicerec-By-Codex/
 - Thin controllers (API endpoints) with logic in service classes
 - Services handle business rules and orchestration
 - Clear separation of concerns
+- Services receive repositories and gRPC clients through constructor injection
+  and FastAPI `Depends`, making them fully testable in isolation
 
 ### gRPC Client Factory Pattern
 - Factory pattern for creating gRPC clients
