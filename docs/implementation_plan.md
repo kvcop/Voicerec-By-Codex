@@ -84,7 +84,8 @@
 1. **Создать модели базы данных**
    - Meeting (id, user_id, filename, created_at, status)
    - Transcript (id, meeting_id, text, speaker_id, timestamp)
-   - User (id, email, created_at)
+   - User (id, email, hashed_password, created_at, updated_at)
+     - `hashed_password` хранит только криптографический хэш пароля пользователя
 
 2. **Настроить Alembic**
    - Инициализация миграций
@@ -130,9 +131,11 @@
 **Приоритет: Средний**
 
 1. **Система пользователей**
-   - Регистрация/вход через email
+   - Регистрация/вход через email с валидацией пароля, сохранением его хэша и проверкой при входе
    - JWT токены
    - Middleware для защиты API
+   - Тесты: покрыть сценарии валидации/аутентификации в `backend/tests/auth/test_auth_service.py`
+   - Сервисы: реализовать использование хэша пароля в будущем `AuthService`
 
 2. **Привязка встреч к пользователям**
    - Обновление API для работы с user_id
