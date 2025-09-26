@@ -15,3 +15,9 @@ venv/
 .DS_Store
 backend/tests/__pycache__/
 
+# Data artifacts
+data/raw/
+data/processed/
+data/interim/
+data/external/
+
