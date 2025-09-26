@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import json
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
 import aiofiles
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
+
+from app.services.transcript import RAW_AUDIO_DIR, TranscriptService, get_transcript_service
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator
@@ -18,15 +20,14 @@ router = APIRouter()
 CHUNK_SIZE = 1024 * 1024
 
 # Directory for raw audio files.
-RAW_DATA_DIR = Path(__file__).resolve().parents[3] / 'data' / 'raw'
-RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post('/upload')
 async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     meeting_id = uuid4().hex
-    dest = RAW_DATA_DIR / f'{meeting_id}.wav'
+    dest = RAW_AUDIO_DIR / f'{meeting_id}.wav'
     # TODO: перенести в защищённое хранилище
     async with aiofiles.open(dest, 'wb') as buffer:
         try:
@@ -43,22 +44,18 @@ async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]
 async def _event_generator(
     meeting_id: str, service: TranscriptService
 ) -> AsyncGenerator[str, None]:
-    async for text in service.stream_transcript(meeting_id):
-        yield f'data: {text}\n\n'
+    async for payload in service.stream_transcript(meeting_id):
+        yield f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
+    yield 'event: end\ndata: {}\n\n'
 
 
 @router.get('/stream/{meeting_id}')
-async def stream_transcript(meeting_id: str) -> StreamingResponse:
+async def stream_transcript(
+    meeting_id: str,
+    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+) -> StreamingResponse:
     """Stream transcript updates via SSE."""
-    service = TranscriptService()
-    return StreamingResponse(_event_generator(meeting_id, service), media_type='text/event-stream')
-
-
-class TranscriptService:
-    """Service layer for transcript streaming."""
-
-    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[str, None]:
-        """Yield transcript fragments for the given meeting."""
-        if False:  # pragma: no cover - placeholder for real implementation
-            yield meeting_id
-        return
+    return StreamingResponse(
+        _event_generator(meeting_id, service),
+        media_type='text/event-stream',
+    )
