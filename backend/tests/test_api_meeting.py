@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 from app.api import meeting
 from app.main import app
 from app.services import (
+    TranscribeClientProtocol,
     TranscriptRepositoryProtocol,
     TranscriptService,
-    TranscribeClientProtocol,
     get_transcript_service,
 )
 
@@ -48,8 +48,10 @@ async def _fake_stream(_: str) -> AsyncGenerator[str, None]:
 
 
 class _FakeTranscriptRepository(TranscriptRepositoryProtocol):
-    async def save_fragment(self, meeting_id: str, text: str) -> None:  # pragma: no cover - stub
-        return None
+    async def save_fragment(  # pragma: no cover - stub
+        self, _meeting_id: str, _text: str
+    ) -> None:
+        del _meeting_id, _text
 
 
 class _FakeTranscribeClient(TranscribeClientProtocol):
@@ -68,7 +70,6 @@ class _FakeTranscriptService(TranscriptService):
 
 def test_stream() -> None:
     """SSE endpoint streams transcript fragments."""
-
     app.dependency_overrides[get_transcript_service] = lambda: _FakeTranscriptService()
 
     try:

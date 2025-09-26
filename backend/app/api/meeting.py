@@ -42,7 +42,7 @@ async def _event_generator(
 @router.get('/stream/{meeting_id}')
 async def stream_transcript(
     meeting_id: str,
-    service: TranscriptService = Depends(get_transcript_service),
+    service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
     return StreamingResponse(
