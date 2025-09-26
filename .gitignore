@@ -5,7 +5,6 @@ __pycache__/
 
 # Node
 frontend/node_modules/
-frontend/package-lock.json
 
 # Virtual envs
 venv/
