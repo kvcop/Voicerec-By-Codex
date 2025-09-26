@@ -44,6 +44,7 @@ The backend is in active development with core infrastructure established. Audio
 - **settings.py**: Pydantic settings with GPU/DB configuration
 - Environment-based config via `.env` files
 - Type-safe configuration validation
+- **logging.py**: Configures Loguru with JSON output and HTTP middleware bindings
 
 ### Database Layer (`app/db/`)
 - **session.py**: AsyncSession factory
@@ -142,6 +143,11 @@ uv sync
 
 # Development
 uv run uvicorn app.main:app --reload
+
+## Observability
+
+- Structured JSON logging via Loguru configured in `app/core/logging.py`
+- Automatic HTTP request/response logging through FastAPI middleware
 
 # Quality checks (in order)
 uv run ruff check --fix .
