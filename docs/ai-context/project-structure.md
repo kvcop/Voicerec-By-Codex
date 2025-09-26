@@ -138,6 +138,8 @@ Voicerec-By-Codex/
 ├── protos/                             # Protocol buffer definitions
 │   └── [proto files]                   # gRPC service definitions
 ├── infra/                              # Infrastructure configuration
+│   ├── docker-compose.ci.yml           # PostgreSQL service for CI pipelines
+│   ├── docker-compose.dev.yml          # PostgreSQL service for local development
 │   └── docker-compose.gpu.yml          # Mock GPU services configuration
 ├── data/                               # Data storage (temporary)
 │   └── raw/                            # Raw audio storage (migrate by 2025)
