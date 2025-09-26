@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from typing import TYPE_CHECKING, Any
@@ -15,10 +16,13 @@ class MockTranscribeClient:
 
     def __init__(self, fixture_path: Path) -> None:
         self._fixture_path = fixture_path
+        self._cached_data: dict[str, Any] | None = None
 
     async def run(self, _: Path) -> dict[str, Any]:
         """Return transcript data from fixture."""
-        return json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        if self._cached_data is None:
+            self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        return copy.deepcopy(self._cached_data)
 
 
 class MockDiarizeClient:
@@ -26,10 +30,13 @@ class MockDiarizeClient:
 
     def __init__(self, fixture_path: Path) -> None:
         self._fixture_path = fixture_path
+        self._cached_data: dict[str, Any] | None = None
 
     async def run(self, _: Path) -> dict[str, Any]:
         """Return diarization data from fixture."""
-        return json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        if self._cached_data is None:
+            self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        return copy.deepcopy(self._cached_data)
 
 
 class MockSummarizeClient:
@@ -37,10 +44,13 @@ class MockSummarizeClient:
 
     def __init__(self, fixture_path: Path) -> None:
         self._fixture_path = fixture_path
+        self._cached_data: dict[str, Any] | None = None
 
     async def run(self, _: str) -> dict[str, Any]:
         """Return summary data from fixture."""
-        return json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        if self._cached_data is None:
+            self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
+        return copy.deepcopy(self._cached_data)
 
 
 Client = MockTranscribeClient | MockDiarizeClient | MockSummarizeClient
