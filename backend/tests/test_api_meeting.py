@@ -38,11 +38,15 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(meeting, 'uuid4', lambda: _UUID())
     monkeypatch.setattr(meeting, 'RAW_DATA_DIR', tmp_path)
 
-    response = client.post('/upload', files={'file': ('audio.wav', b'data')})
+    monkeypatch.setattr(meeting, 'CHUNK_SIZE', 1024)
+
+    data = bytes(range(256)) * 4096
+
+    response = client.post('/upload', files={'file': ('audio.wav', data)})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
-    assert saved.read_bytes() == b'data'
+    assert saved.read_bytes() == data
 
 
 async def _fake_stream(_: str) -> AsyncGenerator[str, None]:

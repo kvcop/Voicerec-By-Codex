@@ -14,6 +14,8 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
 
 router = APIRouter()
 
+CHUNK_SIZE = 1024 * 1024
+
 # Directory for raw audio files.
 RAW_DATA_DIR = Path(__file__).resolve().parents[3] / 'data' / 'raw'
 RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -26,7 +28,14 @@ async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]
     dest = RAW_DATA_DIR / f'{meeting_id}.wav'
     # TODO: перенести в защищённое хранилище
     with dest.open('wb') as buffer:
-        buffer.write(await file.read())
+        try:
+            while True:
+                chunk = await file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                buffer.write(chunk)
+        finally:
+            await file.close()
     return {'meeting_id': meeting_id}
 
 
