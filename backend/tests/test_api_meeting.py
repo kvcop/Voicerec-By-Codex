@@ -17,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from types import TracebackType
 
     import pytest
+    from fastapi import UploadFile
 
 client = TestClient(app)
 
@@ -67,23 +68,93 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     opened_files: list[_AsyncFile] = []
 
-    def _fake_open(path: Path, mode: str = 'r', *_args: object, **_kwargs: object) -> _AsyncFile:
+    def _fake_open(path: Path, mode: str = 'r') -> _AsyncFile:
         assert mode == 'wb'
-        assert not _args
-        assert not _kwargs
         async_file = _AsyncFile(Path(path))
         opened_files.append(async_file)
         return async_file
 
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
 
-    response = client.post('/upload', files={'file': ('audio.wav', data)})
+    response = client.post('/upload', files={'file': ('audio.wav', data, 'audio/wav')})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
     assert saved.read_bytes() == data
     assert opened_files
     assert opened_files[0].closed is True
+
+
+def test_upload_rejects_non_wav(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Uploading non-WAV files is rejected with 415 status."""
+    monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
+
+    response = client.post('/upload', files={'file': ('notes.txt', b'123', 'text/plain')})
+
+    assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+    assert response.json() == {'detail': 'Only WAV audio is supported.'}
+    assert not list(tmp_path.iterdir())
+
+
+def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Large uploads are streamed to disk without buffering entire payload."""
+    meeting_id = 'big'
+
+    class _UUID:
+        hex = meeting_id
+
+    monkeypatch.setattr(meeting, 'uuid4', lambda: _UUID())
+    monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
+    monkeypatch.setattr(meeting, 'CHUNK_SIZE', 1024)
+
+    chunks = [b'a' * 1024, b'b' * 1024, b'c']
+    writes: list[bytes] = []
+
+    class _AsyncFile:
+        def __init__(self, path: Path) -> None:
+            self.path = Path(path)
+            self._file = self.path.open('wb')
+            self.closed = False
+
+        async def write(self, chunk: bytes) -> None:
+            writes.append(chunk)
+            self._file.write(chunk)
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            tb: TracebackType | None,
+        ) -> None:
+            self._file.close()
+            self.closed = True
+
+    def _fake_open(path: Path, mode: str = 'r') -> _AsyncFile:
+        assert mode == 'wb'
+        return _AsyncFile(Path(path))
+
+    async def _fake_iter(
+        upload: UploadFile | None = None,
+        *,
+        chunk_size: int = meeting.CHUNK_SIZE,
+    ) -> AsyncGenerator[bytes, None]:
+        del upload
+        assert chunk_size == meeting.CHUNK_SIZE
+        for chunk in chunks:
+            yield chunk
+
+    monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
+    monkeypatch.setattr(meeting, '_iter_upload_file', _fake_iter)
+
+    response = client.post('/upload', files={'file': ('audio.wav', b'dummy', 'audio/wav')})
+
+    assert response.status_code == HTTPStatus.OK
+    saved = tmp_path / f'{meeting_id}.wav'
+    assert saved.read_bytes() == b''.join(chunks)
+    assert writes == chunks
 
 
 def test_stream() -> None:
