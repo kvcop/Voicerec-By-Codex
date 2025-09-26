@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
+import aiofiles
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import StreamingResponse
 
@@ -27,13 +28,13 @@ async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]
     meeting_id = uuid4().hex
     dest = RAW_DATA_DIR / f'{meeting_id}.wav'
     # TODO: перенести в защищённое хранилище
-    with dest.open('wb') as buffer:
+    async with aiofiles.open(dest, 'wb') as buffer:
         try:
             while True:
                 chunk = await file.read(CHUNK_SIZE)
                 if not chunk:
                     break
-                buffer.write(chunk)
+                await buffer.write(chunk)
         finally:
             await file.close()
     return {'meeting_id': meeting_id}
