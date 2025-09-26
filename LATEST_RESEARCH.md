@@ -1,4 +1,5 @@
 Date: 2025-09-27 01:16:03
+Version: 1
 
 # Анализ прогресса проекта Voicerec-By-Codex
 
