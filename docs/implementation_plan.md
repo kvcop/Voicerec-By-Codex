@@ -85,6 +85,7 @@
    - Meeting (id, user_id, filename, created_at, status)
    - Transcript (id, meeting_id, text, speaker_id, timestamp)
    - User (id, email, created_at)
+   - Репозитории `MeetingRepository`, `TranscriptRepository` и `UserRepository` в `backend/app/database/repositories/`
 
 2. **Настроить Alembic**
    - Инициализация миграций
@@ -95,6 +96,11 @@
    - Создание сессий через SQLAlchemy
    - Dependency injection для database session
    - Обновление тестов с тестовой БД
+   - Обновление сервисов и эндпоинтов для работы через репозитории вместо прямого использования `AsyncSession`
+
+4. **Тестовое покрытие слоя данных**
+   - Написать модульные тесты для репозиториев
+   - Обновить существующие тесты для использования нового слоя доступа к данным
 
 ### Фаза 2: Реальная обработка аудио (1-2 недели)  
 **Приоритет: Высокий**
