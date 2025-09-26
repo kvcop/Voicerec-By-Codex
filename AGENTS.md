@@ -12,7 +12,9 @@ Prior to running tests, run code linters and static analysis from the `backend` 
 1. `uv run ruff check --fix .`
 2. `uv run ruff format .`
 3. `uv run mypy .` *(execution may take a long time and that is expected)*
-4. `npm run lint` for the frontend.
+
+Whenever you modify frontend code, run `npm run lint` from the `frontend` directory and include the command in your execution l
+og.
 
 These linting and type-checking commands are mandatory for every backend code change.
 

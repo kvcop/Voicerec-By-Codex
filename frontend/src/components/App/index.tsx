@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from '../../i18n';
 import Dialog from '../Dialog';
 import styles from './styles.module.css';
 
