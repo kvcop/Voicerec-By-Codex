@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi.testclient import TestClient
@@ -13,11 +14,19 @@ from app.services.transcript import get_transcript_service
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from collections.abc import AsyncGenerator
-    from pathlib import Path
 
     import pytest
 
 client = TestClient(app)
+
+
+def test_raw_data_dir_default_location() -> None:
+    """Default storage path resides under repository data/raw."""
+    raw_dir = meeting.RAW_DATA_DIR
+    repo_root = Path(__file__).resolve().parents[2]
+    assert raw_dir == repo_root / 'data' / 'raw'
+    assert 'backend' not in raw_dir.parts
+    assert raw_dir.is_dir()
 
 
 def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -30,11 +39,15 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(meeting, 'uuid4', lambda: _UUID())
     monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
 
-    response = client.post('/upload', files={'file': ('audio.wav', b'data')})
+    monkeypatch.setattr(meeting, 'CHUNK_SIZE', 1024)
+
+    data = bytes(range(256)) * 4096
+
+    response = client.post('/upload', files={'file': ('audio.wav', data)})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
-    assert saved.read_bytes() == b'data'
+    assert saved.read_bytes() == data
 
 
 def test_stream() -> None:

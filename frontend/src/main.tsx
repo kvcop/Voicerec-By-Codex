@@ -6,26 +6,54 @@ import ru from './locales/ru.json';
 import { App } from './components/App';
 
 const messages = { en, ru } as const;
+type Locale = keyof typeof messages;
+
+function isSupportedLocale(locale: string | null): locale is Locale {
+  return !!locale && Object.prototype.hasOwnProperty.call(messages, locale);
+}
+
+function getInitialLocale(): string {
+  if (typeof window === 'undefined') {
+    return 'en';
+  }
+
+  const storedLocale = localStorage.getItem('lang');
+  if (storedLocale) {
+    return storedLocale;
+  }
+
+  if (typeof navigator !== 'undefined') {
+    return navigator.language.split('-')[0];
+  }
+
+  return 'en';
+}
 
 const rootElement = typeof document === 'undefined' ? null : document.getElementById('root');
 export function Root() {
-  const [locale, setLocale] = React.useState(() => {
-    if (typeof window === 'undefined') return 'en';
-    return localStorage.getItem('lang') || navigator.language.split('-')[0];
-  });
+  const [locale, setLocale] = React.useState<string>(getInitialLocale);
+
+  const effectiveLocale = React.useMemo<Locale>(() => {
+    if (isSupportedLocale(locale)) {
+      return locale;
+    }
+    return 'en';
+  }, [locale]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('lang', locale);
+      localStorage.setItem('lang', effectiveLocale);
     }
-  }, [locale]);
+  }, [effectiveLocale]);
 
-  const switchLang = () => setLocale(locale === 'en' ? 'ru' : 'en');
+  const switchLang = React.useCallback(() => {
+    setLocale(effectiveLocale === 'en' ? 'ru' : 'en');
+  }, [effectiveLocale]);
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages[locale]}>
+    <NextIntlClientProvider locale={effectiveLocale} messages={messages[effectiveLocale]}>
       <button onClick={switchLang} data-testid="switch">
-        {locale === 'en' ? 'RU' : 'EN'}
+        {effectiveLocale === 'en' ? 'RU' : 'EN'}
       </button>
       <App />
     </NextIntlClientProvider>

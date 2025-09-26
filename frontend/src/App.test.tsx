@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Root } from './main';
 
@@ -14,6 +14,13 @@ describe('language switch', () => {
     expect(screen.getByRole('heading').textContent).toBe('Войсерек');
     const button = screen.getByTestId('switch');
     await userEvent.click(button);
-    expect(localStorage.getItem('lang')).toBe('en');
+    await waitFor(() => expect(localStorage.getItem('lang')).toBe('en'));
+  });
+
+  it('falls back to English when stored locale is unsupported', async () => {
+    localStorage.setItem('lang', 'de');
+    render(<Root />);
+    expect(screen.getByRole('heading').textContent).toBe('Voicerec');
+    await waitFor(() => expect(localStorage.getItem('lang')).toBe('en'));
   });
 });
