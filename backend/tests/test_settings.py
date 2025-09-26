@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import importlib
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 
 MODULE_PATH = 'app.core.settings'
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 
 def _reload_settings_module() -> ModuleType:
@@ -23,7 +26,6 @@ def _load_gpu_settings() -> type:
 
 def test_settings_module_import_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Settings module can be imported without environment variables set."""
-
     monkeypatch.delenv('DATABASE_URL', raising=False)
     monkeypatch.delenv('GPU_GRPC_HOST', raising=False)
     monkeypatch.delenv('GPU_GRPC_PORT', raising=False)
@@ -35,7 +37,6 @@ def test_settings_module_import_without_env(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_settings_requires_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Creating Settings without the required DATABASE_URL fails validation."""
-
     monkeypatch.delenv('DATABASE_URL', raising=False)
     monkeypatch.delenv('GPU_GRPC_HOST', raising=False)
     monkeypatch.delenv('GPU_GRPC_PORT', raising=False)
@@ -48,7 +49,6 @@ def test_settings_requires_database_url(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     """get_settings returns the same instance on repeated calls."""
-
     monkeypatch.setenv('DATABASE_URL', 'postgresql://example')
     monkeypatch.setenv('GPU_GRPC_HOST', 'host')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')

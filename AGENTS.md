@@ -8,11 +8,13 @@ This repository contains both backend and frontend code for a local meeting tran
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
 - Always run `uv sync` in the `backend` directory before executing any `uv run` commands or tests. All `uv run` commands must be executed from the `backend` folder and not from the repository root.
 
-Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run`:
+Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run` (do this whenever you modify backend code):
 1. `uv run ruff check --fix .`
 2. `uv run ruff format .`
 3. `uv run mypy .` *(execution may take a long time and that is expected)*
 4. `npm run lint` for the frontend.
+
+These linting and type-checking commands are mandatory for every backend code change.
 
 We are adventurers and do not look for easy ways. Do **not** add ignore directives for `mypy` or `ruff`. If an error cannot be solved, add a question in `QUESTIONS.md`.
 
