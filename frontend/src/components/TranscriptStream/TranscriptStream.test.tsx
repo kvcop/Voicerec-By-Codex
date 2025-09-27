@@ -71,7 +71,7 @@ describe('TranscriptStream', () => {
     renderWithIntl(<TranscriptStream meetingId="meeting-42" eventSourceFactory={factory} />);
 
     expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toBe('/api/meeting/stream/meeting-42');
+    expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-42/stream');
     expect(
       screen.getByText('Connecting to live transcript…', { exact: false })
     ).toBeTruthy();
@@ -134,5 +134,22 @@ describe('TranscriptStream', () => {
     } else {
       delete globalWindow.EventSource;
     }
+  });
+
+  it('creates a meeting-specific stream endpoint on meeting change', async () => {
+    const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
+    const { rerender } = renderWithIntl(
+      <TranscriptStream meetingId="meeting-1" eventSourceFactory={factory} />,
+    );
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-1/stream');
+
+    await act(async () => {
+      rerender(<TranscriptStream meetingId="meeting-2" eventSourceFactory={factory} />);
+    });
+
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-2/stream');
   });
 });
