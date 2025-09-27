@@ -48,6 +48,8 @@ async def test_summarize_client() -> None:
     assert isinstance(client, MockSummarizeClient)
     result = await client.run('some text')
     assert result == {'summary': 'This is a summary.'}
+    streamed = [chunk async for chunk in client.stream_run('some text')]
+    assert streamed == [{'summary': 'This is a summary.'}]
 
 
 @pytest.mark.asyncio

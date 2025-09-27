@@ -1,11 +1,13 @@
-"""Tests for meeting API routes."""
+"""Tests for meeting API endpoints."""
 
-from __future__ import annotations
-
+from collections.abc import AsyncGenerator
 from http import HTTPStatus
 from pathlib import Path
+from types import TracebackType
 from typing import TYPE_CHECKING, NoReturn, Self, cast
 
+import pytest
+from fastapi import UploadFile
 from fastapi.testclient import TestClient
 
 from app.api import meeting
@@ -18,12 +20,6 @@ from app.services.transcript import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
-    from collections.abc import AsyncGenerator
-    from types import TracebackType
-
-    import pytest
-    from fastapi import UploadFile
-
     from app.services.meeting_processing import MeetingProcessingService
 
 client = TestClient(app)
