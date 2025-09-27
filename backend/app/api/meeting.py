@@ -51,7 +51,11 @@ def _transcript_service_dependency(
 ) -> TranscriptService:
     """Resolve transcript service with optional client type override."""
     if client_type is not None:
-        return get_transcript_service(client_type=client_type)
+        return get_transcript_service(
+            session=base_service.session,
+            client_type=client_type,
+            raw_audio_dir=base_service.raw_audio_dir,
+        )
     return base_service
 
 

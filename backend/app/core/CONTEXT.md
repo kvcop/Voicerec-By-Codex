@@ -77,10 +77,14 @@ class BaseService:
 ```python
 # Service factory pattern
 def get_transcript_service(
-    settings: Settings = Depends(get_settings),
-    gpu_client: GRPCClient = Depends(get_gpu_client)
+    session: AsyncSession = Depends(get_session),
+    client_type: str | None = None,
 ) -> TranscriptService:
-    return TranscriptService(settings, gpu_client)
+    transcribe_client = build_transcribe_client(client_type)
+    diarize_client = build_diarize_client(client_type)
+    summarize_client = build_summarize_client(client_type)
+    processor = MeetingProcessingService(transcribe_client, diarize_client, summarize_client)
+    return TranscriptService(session, processor)
 ```
 
 ## Security Utilities

@@ -10,7 +10,7 @@
 | B3 | ✓ | Репозитории (CRUD) в `app/db/repositories/` (или единый слой данных) | Backend/DB | P0 | B1–B2 |
 | T1 | ✓ | Async тестовая БД (SQLite/aiosqlite), фикстуры, создание/очистка схемы, FastAPI overrides | Tests/Infra | P0 | B1 |
 | A2 | ✓ | `/upload`: асинхронная потоковая запись чанками + проверка MIME; негативные/large-file тесты | Backend/API | P0 | — |
-| S1 | ✗ | Вынести `TranscriptService` в сервисный слой и внедрять через DI (FastAPI Depends); принимать `AsyncSession` и (в будущем) gRPC-клиентов | Backend/Services | P0 | B1–B3, T1 |
+| S1 | ✓ | Вынести `TranscriptService` в сервисный слой и внедрять через DI (FastAPI Depends); принимать `AsyncSession` и (в будущем) gRPC-клиентов | Backend/Services | P0 | B1–B3, T1 |
 | A1 | ✓ | Выровнять маршруты с докой: префикс `/api/meeting` для upload/stream + подключение роутера | Backend/API | P1 | — |
 | A3 | ✓ | Конфигурируемый путь хранения сырого аудио (через настройки/зависимости), поддержать переопределение в тестах | Backend/Config | P1 | A2 |
 | L1 | ✓ | Структурированное логирование + HTTP-middleware в `app.main` (`loguru` предпочтительно); smoke-тест (caplog) и краткая дока | Backend/Core | P1 | — |

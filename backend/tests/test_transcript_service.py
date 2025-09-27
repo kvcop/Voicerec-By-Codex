@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
+from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.meeting_processing import MeetingEvent, MeetingProcessingResult
 from app.services.transcript import MeetingNotFoundError, TranscriptService
@@ -42,7 +44,9 @@ async def test_stream_transcript_yields_events(tmp_path: Path) -> None:
     ]
     result = MeetingProcessingResult(events=events, summary='Conversation summary')
     processor = _StubProcessor(result)
+    session = cast('AsyncSession', MagicMock(spec=AsyncSession))
     service = TranscriptService(
+        session,
         cast('MeetingProcessingService', processor),
         raw_audio_dir=audio_dir,
     )
@@ -60,7 +64,9 @@ async def test_stream_transcript_yields_events(tmp_path: Path) -> None:
 def test_ensure_audio_available_raises_for_missing_file(tmp_path: Path) -> None:
     """Service raises ``MeetingNotFoundError`` when audio file is absent."""
     processor = _StubProcessor(MeetingProcessingResult(events=[], summary=''))
+    session = cast('AsyncSession', MagicMock(spec=AsyncSession))
     service = TranscriptService(
+        session,
         cast('MeetingProcessingService', processor),
         raw_audio_dir=tmp_path,
     )
