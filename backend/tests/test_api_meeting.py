@@ -1,37 +1,25 @@
-"""Tests for meeting API routes."""
+"""Tests for meeting API endpoints."""
 
-from __future__ import annotations
-
+from collections.abc import AsyncGenerator
 from http import HTTPStatus
 from pathlib import Path
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-from typing import TYPE_CHECKING, Any, Self
-=======
+from types import TracebackType
 from typing import TYPE_CHECKING, NoReturn, Self, cast
->>>>>> main
 
+import pytest
+from fastapi import UploadFile
 from fastapi.testclient import TestClient
 
 from app.api import meeting
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
 from app.main import app
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-from app.services.transcript import TranscriptService, get_transcript_service
-=======
 from app.services.transcript import (
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
 )
->>>>>> main
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
-    from collections.abc import AsyncGenerator
-    from types import TracebackType
-
-    import pytest
-    from fastapi import UploadFile
-
     from app.services.meeting_processing import MeetingProcessingService
 
 client = TestClient(app)
@@ -97,9 +85,6 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
 
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    response = client.post('/api/meeting/upload', files={'file': ('audio.wav', data, 'audio/wav')})
-=======
     app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
     try:
         response = client.post(
@@ -108,7 +93,6 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         )
     finally:
         app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
->>>>>> main
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
@@ -119,13 +103,6 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 def test_upload_rejects_non_wav(tmp_path: Path) -> None:
     """Uploading non-WAV files is rejected with 415 status."""
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
-
-    response = client.post(
-        '/api/meeting/upload', files={'file': ('notes.txt', b'123', 'text/plain')}
-    )
-=======
     app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
     try:
         response = client.post(
@@ -134,7 +111,6 @@ def test_upload_rejects_non_wav(tmp_path: Path) -> None:
         )
     finally:
         app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
->>>>>> main
 
     assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
     assert response.json() == {'detail': 'Only WAV audio is supported.'}
@@ -143,13 +119,6 @@ def test_upload_rejects_non_wav(tmp_path: Path) -> None:
 
 def test_upload_accepts_mixed_case_mime(tmp_path: Path) -> None:
     """Mixed-case WAV MIME types are accepted."""
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
-
-    response = client.post(
-        '/api/meeting/upload', files={'file': ('audio.wav', b'abc', 'audio/WAV')}
-    )
-=======
     app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
     try:
         response = client.post(
@@ -158,7 +127,6 @@ def test_upload_accepts_mixed_case_mime(tmp_path: Path) -> None:
         )
     finally:
         app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
->>>>>> main
 
     assert response.status_code == HTTPStatus.OK
     assert 'meeting_id' in response.json()
@@ -217,11 +185,6 @@ def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
     monkeypatch.setattr(meeting, '_iter_upload_file', _fake_iter)
 
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    response = client.post(
-        '/api/meeting/upload', files={'file': ('audio.wav', b'dummy', 'audio/wav')}
-    )
-=======
     app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
     try:
         response = client.post(
@@ -230,7 +193,6 @@ def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         )
     finally:
         app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
->>>>>> main
 
     assert response.status_code == HTTPStatus.OK
     saved = tmp_path / f'{meeting_id}.wav'
@@ -279,24 +241,6 @@ def test_stream() -> None:
 
 
 def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    """Missing meeting audio results in 404 without invoking transcript client."""
-
-    class _FakeClient:
-        def __init__(self) -> None:
-            self.calls: list[Path] = []
-
-        async def run(self, source: Path) -> dict[str, Any]:
-            self.calls.append(source)
-            return {'segments': [{'text': 'should not be used'}]}
-
-    fake_client = _FakeClient()
-    service = TranscriptService(fake_client, raw_audio_dir=tmp_path)
-    app.dependency_overrides[get_transcript_service] = lambda: service
-
-    try:
-        response = client.get('/stream/missing')
-=======
     """Missing meeting audio results in 404 without invoking transcript processor."""
 
     class _StubProcessor:
@@ -314,14 +258,9 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
 
     try:
         response = client.get('/api/meeting/missing/stream')
->>>>>> main
     finally:
         app.dependency_overrides.pop(get_transcript_service, None)
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Meeting missing not found'}
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    assert fake_client.calls == []
-=======
     assert processor.calls == []
->>>>>> main

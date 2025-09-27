@@ -13,18 +13,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-    RAW_AUDIO_DIR,
-    MeetingNotFoundError,
-    TranscriptService,
-    get_transcript_service,
-=======
     MeetingNotFoundError,
     StreamItem,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
->>>>>> main
 )
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
@@ -115,8 +108,6 @@ async def stream_transcript(
     service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-=======
     return _streaming_response(meeting_id, service)
 
 
@@ -131,7 +122,6 @@ async def stream_transcript_legacy(
 
 def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
     """Return streaming response after verifying audio availability."""
->>>>>> main
     try:
         service.ensure_audio_available(meeting_id)
     except MeetingNotFoundError as exc:
@@ -145,20 +135,10 @@ def _streaming_response(meeting_id: str, service: TranscriptService) -> Streamin
     )
 
 
-<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
-@legacy_router.get('/stream/{meeting_id}', include_in_schema=False)
-async def stream_transcript_legacy(
-    meeting_id: str,
-    service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
-) -> StreamingResponse:
-    """Backward-compatible stream endpoint without the /api prefix."""
-    return await stream_transcript(meeting_id, service)
-
-
-__all__ = ['legacy_router', 'router']
-=======
 def _serialize_stream_item(item: StreamItem) -> str:
     """Format a service stream item to SSE-compatible payload."""
     data = json.dumps(item['data'], ensure_ascii=False)
     return f'event: {item["event"]}\ndata: {data}\n\n'
->>>>>> main
+
+
+__all__ = ['legacy_router', 'router']

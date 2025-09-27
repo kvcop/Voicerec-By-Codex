@@ -12,15 +12,24 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 from app.core.settings import GPUSettings
 from app.grpc_client import create_grpc_client
 from app.services.transcript import (
-    RAW_AUDIO_DIR,
-    TranscriptClientProtocol,
-    TranscriptService,
+    MeetingNotFoundError,
+    resolve_raw_audio_dir,
     resolve_transcribe_fixture_path,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DIARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'diarize.json'
 DEFAULT_SUMMARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'summarize.json'
+
+
+class TranscribeClientProtocol(Protocol):
+    """Protocol describing streaming transcription client behavior."""
+
+    async def run(self, source: Path) -> dict[str, Any]:
+        """Return transcription payload for the provided audio source."""
+
+    async def stream_run(self, source: Path) -> AsyncIterator[dict[str, Any]]:
+        """Yield transcription fragments for streaming consumers."""
 
 
 class DiarizeClientProtocol(Protocol):
@@ -48,7 +57,7 @@ class PipelineService:
 
     def __init__(
         self,
-        transcribe_client: TranscriptClientProtocol,
+        transcribe_client: TranscribeClientProtocol,
         diarize_client: DiarizeClientProtocol,
         summarize_client: SummarizeClientProtocol,
         *,
@@ -68,19 +77,25 @@ class PipelineService:
         self._transcribe_client = transcribe_client
         self._diarize_client = diarize_client
         self._summarize_client = summarize_client
-        self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
-        self._transcript_service = TranscriptService(
-            transcribe_client,
-            raw_audio_dir=self._raw_audio_dir,
-            enforce_audio_presence=enforce_audio_presence,
-        )
+        if raw_audio_dir is not None:
+            self._raw_audio_dir = raw_audio_dir
+        elif enforce_audio_presence:
+            self._raw_audio_dir = resolve_raw_audio_dir()
+        else:
+            self._raw_audio_dir = Path()
+        self._enforce_audio_presence = enforce_audio_presence
 
     async def stream_pipeline(self, meeting_id: str) -> AsyncIterator[dict[str, Any]]:
         """Run all pipeline steps and yield structured events."""
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        if self._enforce_audio_presence and not audio_path.is_file():
+            raise MeetingNotFoundError(meeting_id)
         transcript_parts: list[str] = []
 
-        async for chunk in self._transcript_service.stream_transcript(meeting_id):
+        transcript_iterator = await _ensure_async_iterator(
+            self._transcribe_client.stream_run(audio_path)
+        )
+        async for chunk in transcript_iterator:
             text = chunk.get('text')
             if isinstance(text, str):
                 transcript_parts.append(text)
@@ -150,7 +165,7 @@ def get_pipeline_service(
     )
 
     return PipelineService(
-        cast('TranscriptClientProtocol', transcribe_client),
+        cast('TranscribeClientProtocol', transcribe_client),
         cast('DiarizeClientProtocol', diarize_client),
         cast('SummarizeClientProtocol', summarize_client),
         enforce_audio_presence=enforce_audio_presence,
