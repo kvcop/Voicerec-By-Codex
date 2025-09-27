@@ -9,20 +9,21 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    from collections.abc import Iterable, Iterator
     from pathlib import Path
 
 
 class TranscribeClientProtocol(Protocol):
     """Protocol describing the transcription client."""
 
-    async def run(self, source: Path) -> dict[str, Any]:  # pragma: no cover - protocol
+    async def run(self, source: Iterable[bytes]) -> dict[str, Any]:  # pragma: no cover - protocol
         """Return transcription payload for the provided audio source."""
 
 
 class DiarizeClientProtocol(Protocol):
     """Protocol describing the diarization client."""
 
-    async def run(self, source: Path) -> dict[str, Any]:  # pragma: no cover - protocol
+    async def run(self, source: Iterable[bytes]) -> dict[str, Any]:  # pragma: no cover - protocol
         """Return diarization payload for the provided audio source."""
 
 
@@ -73,8 +74,11 @@ class MeetingProcessingService:
         Returns:
             Result containing aggregated events and final summary text.
         """
-        transcribe_task = asyncio.create_task(self._transcribe_client.run(audio_path))
-        diarize_task = asyncio.create_task(self._diarize_client.run(audio_path))
+        transcribe_stream = self._iter_audio_chunks(audio_path)
+        diarize_stream = self._iter_audio_chunks(audio_path)
+
+        transcribe_task = asyncio.create_task(self._transcribe_client.run(transcribe_stream))
+        diarize_task = asyncio.create_task(self._diarize_client.run(diarize_stream))
 
         transcribe_payload, diarize_payload = await asyncio.gather(transcribe_task, diarize_task)
 
@@ -100,6 +104,24 @@ class MeetingProcessingService:
         summary = self._extract_summary_text(summary_payload, summary_fragments)
 
         return MeetingProcessingResult(events=events, summary=summary)
+
+    def _iter_audio_chunks(
+        self,
+        audio_path: Path,
+        *,
+        chunk_size: int = 64 * 1024,
+    ) -> Iterable[bytes]:
+        """Yield audio file contents in fixed-size chunks."""
+
+        def generator() -> Iterator[bytes]:
+            with audio_path.open('rb') as audio_file:
+                while True:
+                    chunk = audio_file.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        return generator()
 
     def _build_summary_input(self, payload: dict[str, Any]) -> str:
         """Return raw transcript text suitable for summarization input."""

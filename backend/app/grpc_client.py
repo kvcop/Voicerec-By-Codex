@@ -7,7 +7,7 @@ import json
 import os
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:  # pragma: no cover - only for type hints
     from collections.abc import Iterable
     from pathlib import Path
 
@@ -21,10 +21,7 @@ class MockTranscribeClient:
 
     async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
         """Return transcript data from fixture."""
-        # Exhaust the stream to emulate gRPC consumption and surface IO errors
-        # from the producer when the iterable is evaluated.
-        for _ in source:
-            pass
+        _consume_stream(source)
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
         return copy.deepcopy(self._cached_data)
@@ -39,8 +36,7 @@ class MockDiarizeClient:
 
     async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
         """Return diarization data from fixture."""
-        for _ in source:
-            pass
+        _consume_stream(source)
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
         return copy.deepcopy(self._cached_data)
@@ -61,6 +57,14 @@ class MockSummarizeClient:
 
 
 Client = MockTranscribeClient | MockDiarizeClient | MockSummarizeClient
+
+
+def _consume_stream(stream: Iterable[bytes]) -> None:
+    """Read the entire stream to emulate GPU client behaviour."""
+    for chunk in stream:
+        if not isinstance(chunk, (bytes, bytearray)):
+            message = 'Audio chunks must be bytes-like'
+            raise TypeError(message)
 
 
 def create_grpc_client(
