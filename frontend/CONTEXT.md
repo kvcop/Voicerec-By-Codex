@@ -4,7 +4,7 @@
 React-based web application for meeting transcription interface. Provides audio upload, real-time transcript display, speaker identification visualization, and meeting management. Built with TypeScript, Vite, Radix UI primitives, and CSS modules.
 
 ## Current Status: Initial Setup
-Frontend scaffolding established with React 18, TypeScript, and Vite. Basic component structure with App and Dialog components. Internationalization support with English and Russian locales via a lightweight custom provider. Styling relies on CSS modules alongside Radix UI for accessible primitives.
+Frontend scaffolding established with React 18, TypeScript, and Vite. Basic component structure with App and Dialog components. Internationalization support with English and Russian locales powered by `react-intl`. Styling relies on CSS modules alongside Radix UI for accessible primitives.
 
 ## Component-Specific Development Guidelines
 
@@ -54,8 +54,8 @@ components/
 - **WebSocket** for real-time updates
 
 ### Internationalization (`src/locales/`)
-- Custom React translation provider (`src/i18n`)
-- JSON files for translations
+- `react-intl` provider wrapper (`src/i18n`)
+- JSON files for translations consumed by `IntlProvider`
 - Support for English and Russian
 
 ## Architectural Patterns

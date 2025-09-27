@@ -11,13 +11,19 @@ import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.services.transcript import RAW_AUDIO_DIR, TranscriptService, get_transcript_service
+from app.services.transcript import (
+    RAW_AUDIO_DIR,
+    MeetingNotFoundError,
+    TranscriptService,
+    get_transcript_service,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
     from pathlib import Path
 
-router = APIRouter()
+router = APIRouter(prefix='/api/meeting')
+legacy_router = APIRouter()
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -75,19 +81,34 @@ async def _event_generator(
     yield 'event: end\ndata: {}\n\n'
 
 
-@router.get('/stream/{meeting_id}')
+def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
+    """Return streaming response after verifying audio availability."""
+    try:
+        service.ensure_audio_available(meeting_id)
+    except MeetingNotFoundError as exc:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    return StreamingResponse(
+        _event_generator(meeting_id, service),
+        media_type='text/event-stream',
+    )
+
+
+@router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
-    audio_exists = getattr(service, 'audio_exists', None)
-    if callable(audio_exists) and not audio_exists(meeting_id):
-        raise HTTPException(
-            status_code=HTTPStatus.NOT_FOUND,
-            detail=f'Meeting {meeting_id} not found',
-        )
-    return StreamingResponse(
-        _event_generator(meeting_id, service),
-        media_type='text/event-stream',
-    )
+    return _streaming_response(meeting_id, service)
+
+
+@legacy_router.get('/stream/{meeting_id}', include_in_schema=False)
+async def stream_transcript_legacy(
+    meeting_id: str,
+    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+) -> StreamingResponse:
+    """Legacy path kept for backward compatibility with early clients."""
+    return _streaming_response(meeting_id, service)

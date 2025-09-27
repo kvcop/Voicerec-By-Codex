@@ -8,10 +8,10 @@
 | B1 | ✓ | Базовая ORM-инфраструктура: `DeclarativeBase`, `metadata`, точка импорта моделей | Backend/DB | P0 | — |
 | B2 | ✓ | Модели **User, Meeting, Transcript** с связями/индексами | Backend/DB | P0 | B1 |
 | B3 | ✗ | Репозитории (CRUD) в `app/db/repositories/` (или единый слой данных) | Backend/DB | P0 | B1–B2 |
-| T1 | ✗ | Async тестовая БД (SQLite/aiosqlite), фикстуры, создание/очистка схемы, FastAPI overrides | Tests/Infra | P0 | B1 |
+| T1 | ✓ | Async тестовая БД (SQLite/aiosqlite), фикстуры, создание/очистка схемы, FastAPI overrides | Tests/Infra | P0 | B1 |
 | A2 | ✓ | `/upload`: асинхронная потоковая запись чанками + проверка MIME; негативные/large-file тесты | Backend/API | P0 | — |
 | S1 | ✗ | Вынести `TranscriptService` в сервисный слой и внедрять через DI (FastAPI Depends); принимать `AsyncSession` и (в будущем) gRPC-клиентов | Backend/Services | P0 | B1–B3, T1 |
-| A1 | ✗ | Выровнять маршруты с докой: префикс `/api/meeting` для upload/stream + подключение роутера | Backend/API | P1 | — |
+| A1 | ✓ | Выровнять маршруты с докой: префикс `/api/meeting` для upload/stream + подключение роутера | Backend/API | P1 | — |
 | A3 | ✗ | Конфигурируемый путь хранения сырого аудио (через настройки/зависимости), поддержать переопределение в тестах | Backend/Config | P1 | A2 |
 | L1 | ✓ | Структурированное логирование + HTTP-middleware в `app.main` (`loguru` предпочтительно); smoke-тест (caplog) и краткая дока | Backend/Core | P1 | — |
 | F1 | ✗ | Frontend SSE-компонент: `EventSource` к `/api/meeting/stream/{meeting_id}`, состояние/локализация, vitest | Frontend/SSE | P1 | A1 |
@@ -22,7 +22,7 @@
 | F2 | ✓ | Почистить фронтенд-зависимости, обновить lock/README, добавить vitest smoke-snapshot | Frontend/Build | P2 | — |
 | T2 | ✓ | Убрать `sys.path.append` из тестов: оформить backend как installable package или корректно настроить PYTHONPATH/uv; обновить инструкции | Tests/Infra | P2 | — |
 | F3 | ✓ | Локализовать кнопку “Close” в диалоге (i18n словари, переключение языка) | Frontend/i18n | P2 | — |
-| F4 | ✗ | Заменить `next-intl` на Vite-дружелюбную i18n-библиотеку (напр., `react-intl`/`use-intl`/`lingui`) | Frontend/i18n | P2 | F2 |
+| F4 | ✓ | Заменить `next-intl` на Vite-дружелюбную i18n-библиотеку (напр., `react-intl`/`use-intl`/`lingui`) | Frontend/i18n | P2 | F2 |
 
 ## Предлагаемые параллельные треки
 
