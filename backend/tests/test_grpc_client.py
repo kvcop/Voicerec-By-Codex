@@ -21,6 +21,8 @@ async def test_transcribe_client() -> None:
     assert isinstance(client, MockTranscribeClient)
     result = await client.run(Path('dummy.wav'))
     assert result == {'text': 'hello world'}
+    chunks = [chunk async for chunk in client.stream_run(Path('dummy.wav'))]
+    assert chunks == [{'text': 'hello world'}]
 
 
 @pytest.mark.asyncio
@@ -32,6 +34,9 @@ async def test_diarize_client() -> None:
     expected_segments = 2
     assert result['segments'][0]['speaker'] == 'A'
     assert len(result['segments']) == expected_segments
+    streamed = [chunk async for chunk in client.stream_run(Path('dummy.wav'))]
+    assert len(streamed) == expected_segments
+    assert streamed[0]['speaker'] == 'A'
 
 
 @pytest.mark.asyncio
@@ -41,6 +46,8 @@ async def test_summarize_client() -> None:
     assert isinstance(client, MockSummarizeClient)
     result = await client.run('some text')
     assert result == {'summary': 'This is a summary.'}
+    streamed = [chunk async for chunk in client.stream_run('some text')]
+    assert streamed == [{'summary': 'This is a summary.'}]
 
 
 @pytest.mark.asyncio
