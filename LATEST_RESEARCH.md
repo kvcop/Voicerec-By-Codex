@@ -3,6 +3,9 @@
 С этого момента подробные исследования и обзоры переносятся в каталог `docs/researches/`.
 Каждый файл именуется по схеме `<YYYY-MM-DD>-v<версия>-<краткое-название>.md`, что упрощает ведение хронологии.
 
-**Последняя запись:** [latest → docs/researches/2025-09-27-v1-project-progress.md](docs/researches/2025-09-27-v1-project-progress.md)
+**Последняя запись:** [latest → docs/researches/2025-09-27-v1-gpu-integration.md](docs/researches/2025-09-27-v1-gpu-integration.md)
+
+Предыдущие материалы:
+- [2025-09-27-v1-project-progress.md](docs/researches/2025-09-27-v1-project-progress.md)
 
 При добавлении новых материалов обновляйте ссылку выше и создавайте отдельный файл в архиве.
