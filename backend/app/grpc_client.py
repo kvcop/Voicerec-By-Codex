@@ -35,7 +35,7 @@ class MockTranscribeClient:
 
     async def stream_run(self, _: Path) -> AsyncIterator[dict[str, Any]]:
         """Yield transcript fragments read from fixture."""
-        payload = await self.run(Path('dummy.wav'))
+        payload = await self.run([b''])
         segments = payload.get('segments')
         if isinstance(segments, list):
             for segment in segments:
@@ -64,7 +64,7 @@ class MockDiarizeClient:
 
     async def stream_run(self, _: Path) -> AsyncIterator[dict[str, Any]]:
         """Yield diarization segments from fixture."""
-        payload = await self.run(Path('dummy.wav'))
+        payload = await self.run([b''])
         segments = payload.get('segments')
         if isinstance(segments, list):
             for segment in segments:
