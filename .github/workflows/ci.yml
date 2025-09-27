@@ -105,7 +105,7 @@ jobs:
       - name: Install uv
         run: pip install uv
       - name: Install GPU services dependencies
-        run: ./scripts/install_backend_deps.sh
+        run: ./scripts/install_gpu_ci_deps.sh
       - name: Ruff check (GPU services)
         run: |
           if [ -d ../gpu_services ]; then
