@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from collections.abc import AsyncGenerator, Iterable, Mapping
 
+from app.core.settings import get_settings
 from app.grpc_client import create_grpc_client
 from app.services.meeting_processing import (
     DiarizeClientProtocol,
@@ -19,11 +20,26 @@ from app.services.meeting_processing import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
-RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_TRANSCRIBE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'transcribe.json'
+<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
 DEFAULT_DIARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'diarize.json'
 DEFAULT_SUMMARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'summarize.json'
+=======
+
+
+def resolve_raw_audio_dir() -> Path:
+    """Return directory configured for storing raw audio files."""
+    directory = get_settings().raw_audio_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+class TranscriptClientProtocol(Protocol):
+    """Protocol describing client required by the transcript service."""
+
+    async def run(self, source: Path) -> dict[str, Any]:
+        """Return transcript payload for the provided audio source."""
+>>>>>> main
 
 
 class MeetingNotFoundError(Exception):
@@ -50,8 +66,18 @@ class TranscriptService:
             meeting_processor: Service responsible for aggregating meeting data.
             raw_audio_dir: Directory where meeting audio files are stored.
         """
+<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
         self._meeting_processor = meeting_processor
         self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
+=======
+        if words_per_chunk <= 0:
+            message = 'words_per_chunk must be positive'
+            raise ValueError(message)
+
+        self._client = transcript_client
+        self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
+        self._words_per_chunk = words_per_chunk
+>>>>>> main
 
     async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[StreamItem, None]:
         """Yield meeting events and final summary for the provided meeting.
