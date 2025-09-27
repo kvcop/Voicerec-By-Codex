@@ -3,15 +3,17 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: ./install_deps.sh [--backend] [--frontend]
+Usage: ./install_deps.sh [--backend] [--frontend] [--gpu]
 
 Without arguments installs both backend and frontend dependencies. Use flags to
-limit the installation scope.
+limit the installation scope. GPU dependencies are installed only when the
+`--gpu` flag is provided because they require large downloads.
 USAGE
 }
 
 BACKEND=false
 FRONTEND=false
+GPU=false
 
 if [ $# -eq 0 ]; then
   BACKEND=true
@@ -24,6 +26,9 @@ else
         ;;
       --frontend)
         FRONTEND=true
+        ;;
+      --gpu)
+        GPU=true
         ;;
       --help|-h)
         usage
@@ -46,4 +51,8 @@ fi
 
 if [ "$FRONTEND" = true ]; then
   "$SCRIPT_DIR"/scripts/install_frontend_deps.sh
+fi
+
+if [ "$GPU" = true ]; then
+  "$SCRIPT_DIR"/scripts/install_gpu_deps.sh
 fi
