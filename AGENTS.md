@@ -41,7 +41,7 @@ After every code change, check whether the documentation requires updates and ke
 - Document every relocated answer by referencing the new documentation in both `README.md` and this `AGENTS.md` file so the context remains discoverable.
 - Leave in `QUESTIONS.md` only the items that still require input from the owner.
 
-`LATEST_RESEARCH.md` should exist. It contains latest information about the project with the date specified and version. You should use it whenever possible.
+`LATEST_RESEARCH.md` now serves as a pointer to the newest research summary. Read it and/or open the latest entries inside `docs/researches/`, where files follow the `<YYYY-MM-DD>-v<version>-<short-name>.md` naming scheme to keep the history in order.
 
 The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without explicit user instruction.
 
