@@ -5,17 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
 import TranscriptStream, { EventSourceFactory } from './index';
 
-/* eslint-disable-next-line no-unused-vars */
 type GenericListener = (payload: unknown) => void;
 
 class MockEventSource {
   public static instances: MockEventSource[] = [];
   public readonly url: string;
   public onopen: (() => void) | null = null;
-<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
-  public onmessage: ((data: string) => void) | null = null;
-=======
->>>>>> main
   public onerror: (() => void) | null = null;
   private closed = false;
   private readonly listeners: Record<string, Set<GenericListener>> = {};
@@ -29,12 +24,12 @@ class MockEventSource {
     if (!this.listeners[type]) {
       this.listeners[type] = new Set();
     }
-    this.listeners[type].add(listener);
+    this.listeners[type]!.add(listener);
   }
 
   removeEventListener(type: string, listener: GenericListener) {
     this.listeners[type]?.delete(listener);
-    if (this.listeners[type] && this.listeners[type]?.size === 0) {
+    if (this.listeners[type]?.size === 0) {
       delete this.listeners[type];
     }
   }
@@ -105,18 +100,14 @@ describe('TranscriptStream', () => {
 
     expect(MockEventSource.instances).toHaveLength(1);
     expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-42/stream');
-    expect(
-      screen.getByText('Connecting to live transcript…', { exact: false })
-    ).toBeTruthy();
+    expect(screen.getByText('Connecting to live transcript…', { exact: false })).toBeTruthy();
 
     await act(async () => {
       MockEventSource.instances[0].emitOpen();
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByText('Live transcription in progress', { exact: false })
-      ).toBeTruthy(),
+      expect(screen.getByText('Live transcription in progress', { exact: false })).toBeTruthy(),
     );
 
     await act(async () => {
@@ -180,7 +171,6 @@ describe('TranscriptStream', () => {
     }
   });
 
-<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
   it('resets state and reconnects when meetingId changes', async () => {
     const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
 
@@ -202,22 +192,28 @@ describe('TranscriptStream', () => {
     expect(MockEventSource.instances).toHaveLength(1);
     await act(async () => {
       MockEventSource.instances[0].emitOpen();
-      MockEventSource.instances[0].emitMessage({ text: 'First message' });
+      MockEventSource.instances[0].emitTranscript({ text: 'First message' });
+      MockEventSource.instances[0].emitSummary({ summary: 'Summary A' });
     });
 
     expect(await screen.findByText('First message')).toBeTruthy();
+    expect(screen.getByText('Summary A')).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'change' }));
 
     await waitFor(() => expect(MockEventSource.instances).toHaveLength(2));
-    expect(MockEventSource.instances[1].url).toBe('/api/meeting/stream/meeting-b');
+    expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-b/stream');
 
     await waitFor(() =>
       expect(
         screen.getByText('Waiting for transcript updates…', { selector: 'p' })
       ).toBeTruthy(),
     );
-=======
+
+    expect(screen.queryByText('First message')).toBeNull();
+    expect(screen.queryByText('Summary A')).toBeNull();
+  });
+
   it('creates a meeting-specific stream endpoint on meeting change', async () => {
     const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
     const { rerender } = renderWithIntl(
@@ -233,6 +229,5 @@ describe('TranscriptStream', () => {
 
     expect(MockEventSource.instances).toHaveLength(2);
     expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-2/stream');
->>>>>> main
   });
 });

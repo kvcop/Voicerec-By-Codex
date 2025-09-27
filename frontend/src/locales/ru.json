@@ -22,9 +22,6 @@
   "transcriptStream.status.error": "Соединение потеряно. Повторите попытку.",
   "transcriptStream.status.unsupported": "Поток транскрипции недоступен в этом окружении.",
   "transcriptStream.empty": "Ожидание новых фрагментов транскрипции…",
-<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
-  "transcriptStream.placeholder.noMeeting": "Загрузите аудиозапись встречи, чтобы увидеть поток транскрипции."
-=======
+  "transcriptStream.placeholder.noMeeting": "Загрузите аудиозапись встречи, чтобы увидеть поток транскрипции.",
   "transcriptStream.summary.title": "Итоговое резюме"
->>>>>> main
 }

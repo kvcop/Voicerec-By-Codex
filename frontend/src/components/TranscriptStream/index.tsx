@@ -115,23 +115,18 @@ export default function TranscriptStream({
   React.useEffect(() => {
     const factory = eventSourceFactory ?? resolveDefaultFactory();
     if (!factory) {
-      setChunks([]);
+      setTranscriptChunks([]);
+      setSummary(null);
       setConnectionState('unsupported');
       return undefined;
     }
 
-<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
-    setChunks([]);
-=======
-    const source = factory(`/api/meeting/${meetingId}/stream`);
-    let isActive = true;
+    setConnectionState('connecting');
 
     setTranscriptChunks([]);
     setSummary(null);
->>>>>> main
-    setConnectionState('connecting');
 
-    const source = factory(`/api/meeting/stream/${meetingId}`);
+    const source = factory(`/api/meeting/${meetingId}/stream`);
     let isActive = true;
 
     const handleOpen = () => {
@@ -183,15 +178,15 @@ export default function TranscriptStream({
     const summaryListener = (event: unknown) => {
       handleSummaryEvent(event);
     };
-    source.addEventListener('transcript', transcriptListener as any);
-    source.addEventListener('summary', summaryListener as any);
+    source.addEventListener('transcript', transcriptListener as EventListener);
+    source.addEventListener('summary', summaryListener as EventListener);
     source.onerror = handleError;
 
     return () => {
       isActive = false;
       source.onopen = null;
-      source.removeEventListener('transcript', transcriptListener as any);
-      source.removeEventListener('summary', summaryListener as any);
+      source.removeEventListener('transcript', transcriptListener as EventListener);
+      source.removeEventListener('summary', summaryListener as EventListener);
       source.onerror = null;
       source.close();
     };
