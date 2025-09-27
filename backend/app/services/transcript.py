@@ -58,11 +58,21 @@ class TranscriptService:
         Yields:
             Dictionaries with chunk metadata and text content.
         """
-        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        audio_path = self._audio_path(meeting_id)
+        if not audio_path.exists():
+            raise FileNotFoundError(audio_path)
         payload = await self._client.run(audio_path)
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}
+
+    def audio_exists(self, meeting_id: str) -> bool:
+        """Return whether audio for the provided meeting id is available."""
+        return self._audio_path(meeting_id).exists()
+
+    def _audio_path(self, meeting_id: str) -> Path:
+        """Return the expected audio path for a meeting identifier."""
+        return self._raw_audio_dir / f'{meeting_id}.wav'
 
     def _extract_chunks(self, payload: dict[str, Any]) -> Iterable[str]:
         """Extract text chunks from transcription payload."""

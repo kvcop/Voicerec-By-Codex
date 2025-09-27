@@ -81,6 +81,12 @@ async def stream_transcript(
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    audio_exists = getattr(service, 'audio_exists', None)
+    if callable(audio_exists) and not audio_exists(meeting_id):
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f'Meeting {meeting_id} not found',
+        )
     return StreamingResponse(
         _event_generator(meeting_id, service),
         media_type='text/event-stream',

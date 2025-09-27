@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -11,6 +12,9 @@ from sqlalchemy.types import CHAR, TypeDecorator
 if TYPE_CHECKING:
     from sqlalchemy.engine import Dialect
     from sqlalchemy.sql.type_api import TypeEngine
+
+
+DatetimeType = datetime
 
 
 class GUID(TypeDecorator[uuid.UUID | str]):

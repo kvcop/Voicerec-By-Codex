@@ -10,11 +10,9 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models._types import GUID
+from app.models._types import GUID, DatetimeType
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from app.models.transcript import Transcript
     from app.models.user import User
 
@@ -39,7 +37,7 @@ class Meeting(Base):
         ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[DatetimeType] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     status: Mapped[MeetingStatus] = mapped_column(
