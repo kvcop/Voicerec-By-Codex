@@ -23,6 +23,21 @@
 Все исходные аудио сохраняются во временную папку `data/raw/`. Эти файлы нужно
 перенести в защищённое хранилище до конца 2025 года.
 
+## PostgreSQL
+Для разработки поднимите локальную базу данных командой:
+
+```bash
+docker compose -f infra/docker-compose.dev.yml up -d postgres
+```
+
+В CI используйте облегчённую конфигурацию:
+
+```bash
+docker compose -f infra/docker-compose.ci.yml up -d postgres
+```
+
+Обе конфигурации создают базу `voicerec` с пользователем `voicerec` и включённым healthcheck на основе `pg_isready`.
+
 ## Компиляция proto-файлов
 Для генерации Python-модулей воспользуйтесь пакетом `grpcio-tools`. Запустите команду:
 

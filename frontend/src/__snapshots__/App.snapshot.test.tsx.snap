@@ -1,0 +1,30 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`App snapshot > matches the initial render snapshot 1`] = `
+<div>
+  <button
+    data-testid="switch"
+  >
+    RU
+  </button>
+  <div
+    class="_container_f2db1c"
+  >
+    <h1
+      class="_title_f2db1c"
+    >
+      Voicerec
+    </h1>
+    <button
+      aria-controls="radix-:r0:"
+      aria-expanded="false"
+      aria-haspopup="dialog"
+      class="_trigger_80b6b1"
+      data-state="closed"
+      type="button"
+    >
+      Open Dialog
+    </button>
+  </div>
+</div>
+`;
