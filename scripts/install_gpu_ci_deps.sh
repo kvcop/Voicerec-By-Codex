@@ -7,4 +7,4 @@ BACKEND_VENV="$REPO_ROOT/backend/.venv/bin/python"
 
 "$SCRIPT_DIR/install_backend_deps.sh"
 
-uv pip install --python "$BACKEND_VENV" "torch==2.5.1" "torchaudio==2.5.1"
+uv pip install --python "$BACKEND_VENV" "torch==2.8.0" "torchaudio==2.8.0"
