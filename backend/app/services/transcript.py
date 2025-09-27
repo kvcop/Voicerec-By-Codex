@@ -4,12 +4,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict, cast
 
 if TYPE_CHECKING:  # pragma: no cover - imports for typing only
     from collections.abc import AsyncGenerator, Iterable, Mapping
 
+    from sqlalchemy.ext.asyncio import AsyncSession
+else:  # pragma: no cover - define runtime reference for dependency evaluation
+    import sqlalchemy.ext.asyncio as _sqlalchemy_asyncio
+
+    AsyncSession = _sqlalchemy_asyncio.AsyncSession
+
+from fastapi import Depends
+
 from app.core.settings import GPUSettings, get_settings
+from app.db.session import get_session
 from app.grpc_client import create_grpc_client
 from app.services.meeting_processing import (
     DiarizeClientProtocol,
@@ -53,6 +62,7 @@ class TranscriptService:
 
     def __init__(
         self,
+        session: AsyncSession,
         meeting_processor: MeetingProcessingService,
         *,
         raw_audio_dir: Path | None = None,
@@ -61,10 +71,12 @@ class TranscriptService:
         """Initialize the service.
 
         Args:
+            session: Database session used for persisting transcript data.
             meeting_processor: Service responsible for aggregating meeting data.
             raw_audio_dir: Directory where meeting audio files are stored.
             enforce_audio_presence: Whether to ensure audio exists before processing.
         """
+        self._session = session
         self._meeting_processor = meeting_processor
         self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
         self._enforce_audio_presence = enforce_audio_presence
@@ -105,6 +117,16 @@ class TranscriptService:
         """Return final summary SSE payload."""
         return {'event': 'summary', 'data': {'summary': result.summary}}
 
+    @property
+    def session(self) -> AsyncSession:
+        """Return session used by the service."""
+        return self._session
+
+    @property
+    def raw_audio_dir(self) -> Path:
+        """Return directory where raw audio files are stored."""
+        return self._raw_audio_dir
+
 
 def resolve_transcribe_fixture_path() -> Path:
     """Determine transcript fixture path for the mock gRPC client."""
@@ -131,13 +153,19 @@ def _resolve_summarize_fixture_path() -> Path:
 
 
 def get_transcript_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
     client_type: str | None = None,
     gpu_settings: GPUSettings | None = None,
+    raw_audio_dir: Path | None = None,
+    enforce_audio_presence: bool | None = None,
 ) -> TranscriptService:
     """Return transcript service instance configured with selected gRPC client."""
     resolved_type = client_type or os.getenv('GRPC_CLIENT_TYPE', 'mock')
     if resolved_type == 'grpc' and gpu_settings is None:
         gpu_settings = GPUSettings()
+
+    if enforce_audio_presence is None:
+        enforce_audio_presence = resolved_type != 'mock'
 
     transcribe_client = create_grpc_client(
         'transcribe',
@@ -163,9 +191,10 @@ def get_transcript_service(
         cast('DiarizeClientProtocol', diarize_client),
         cast('SummarizeClientProtocol', summarize_client),
     )
-    enforce_audio_presence = resolved_type != 'mock'
     return TranscriptService(
+        session,
         processor,
+        raw_audio_dir=raw_audio_dir,
         enforce_audio_presence=enforce_audio_presence,
     )
 

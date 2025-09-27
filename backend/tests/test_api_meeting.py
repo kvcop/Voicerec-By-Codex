@@ -5,10 +5,12 @@ from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, NoReturn, Self, cast
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import UploadFile
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import meeting
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
@@ -253,7 +255,12 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
             raise AssertionError(message)
 
     processor = _StubProcessor()
-    service = TranscriptService(cast('MeetingProcessingService', processor), raw_audio_dir=tmp_path)
+    session = cast('AsyncSession', MagicMock(spec=AsyncSession))
+    service = TranscriptService(
+        session,
+        cast('MeetingProcessingService', processor),
+        raw_audio_dir=tmp_path,
+    )
     app.dependency_overrides[get_transcript_service] = lambda: service
 
     try:
