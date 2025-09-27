@@ -8,8 +8,6 @@ import pkgutil
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
-import app.models
-
 NAMING_CONVENTION: dict[str, str] = {
     'ix': 'ix_%(column_0_label)s',
     'uq': 'uq_%(table_name)s_%(column_0_name)s',
@@ -36,7 +34,7 @@ def _iter_model_modules() -> list[str]:
     Returns:
         A list with module names found under ``app.models``.
     """
-    package = app.models
+    package = importlib.import_module('app.models')
     prefix = f'{package.__name__}.'
     return [module_info.name for module_info in pkgutil.walk_packages(package.__path__, prefix)]
 

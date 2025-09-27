@@ -4,7 +4,7 @@
 This repository contains both backend and frontend code for a local meeting transcription service. All heavy ML models remain mocked in tests.
 
 ## Running Tests
-- Backend tests: run from inside the `backend` directory using `uv run pytest`.
+- Backend tests: run from inside the `backend` directory using `uv run pytest`. **You must execute these tests after every backend code change.**
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
 - Always run `uv sync` in the `backend` directory before executing any `uv run` commands or tests. All `uv run` commands must be executed from the `backend` folder and not from the repository root.
 
