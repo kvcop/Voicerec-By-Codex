@@ -34,6 +34,15 @@ Immediate priorities (P0): Finalizing the database integration and enabling auth
 Finally, regarding the research documentation: the archive is now live in `docs/researches/`, with files named `<YYYY-MM-DD>-v<version>-<short-name>.md`. The root `LATEST_RESEARCH.md` is a pointer to the newest entry, and **AGENTS.md** instructs contributors to follow that structure. Future updates should create a new dated file and refresh the pointer so that research history stays consistent and discoverable.
 
 ## Part 1 2025-09-26
-Part 1 is DONE and is located in `docs/TODOS/part_001.md`.
+Part 1 is DONE and is located in `docs/TODOS/part_001_initial.md`.
 
-После выполнения TODOшки перемещаются в ёdocs/TODOS/part_XXX.md`.
+## Part 2 2025-09-27
+Part 2 is IN_PROGRESS and is located in `TODO.md`
+
+## Part 3 2025-09-27
+Part 3 is IN_PROGRESS and is located in `TODO_GPU.md`
+
+## Part 4 2025-09-27
+Part 4 is POSTPONED, is waiting for Parts 2 and 3 and is located in `TODO_INTEGRATION.md`
+
+После выполнения TODOшки перемещаются в `docs/TODOS/part_XXX_{phase}.md`.
