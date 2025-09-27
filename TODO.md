@@ -14,7 +14,7 @@
 | A1 | ✓ | Выровнять маршруты с докой: префикс `/api/meeting` для upload/stream + подключение роутера | Backend/API | P1 | — |
 | A3 | ✓ | Конфигурируемый путь хранения сырого аудио (через настройки/зависимости), поддержать переопределение в тестах | Backend/Config | P1 | A2 |
 | L1 | ✓ | Структурированное логирование + HTTP-middleware в `app.main` (`loguru` предпочтительно); smoke-тест (caplog) и краткая дока | Backend/Core | P1 | — |
-| F1 | ✗ | Frontend SSE-компонент: `EventSource` к `/api/meeting/stream/{meeting_id}`, состояние/локализация, vitest | Frontend/SSE | P1 | A1 |
+| F1 | ✓ | Frontend SSE-компонент: `EventSource` к `/api/meeting/stream/{meeting_id}`, состояние/локализация, vitest | Frontend/SSE | P1 | A1 |
 | D1 | ✓ | Обновить доку (process_overview/README/CONTEXT): логирование, маршруты, хранилище аудио, модели/репозитории, тест-инфра | Docs | P1 | B1–B3, A1–A3, L1, T1 |
 | A4 | ✗ | Починить дефолтный бэкенд-стриминг SSE: `TranscriptService.stream_transcript` должен возвращать `AsyncIterable`; корректный `_event_generator`, heartbeat/timeout | Backend/API/SSE | P1 | S1 |
 | D2 | ✓ | Синхронизировать пути в плане с деревом проекта: `backend/app/db/...` вместо `backend/app/database/...`; убрать ссылки на несуществующие тесты/каталоги | Docs/Plan | P1 | — |

@@ -11,7 +11,7 @@ describe('language switch', () => {
   it('persists language choice', async () => {
     localStorage.setItem('lang', 'ru');
     render(<Root />);
-    expect(screen.getByRole('heading').textContent).toBe('Войсерек');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Войсерек');
     const button = screen.getByTestId('switch');
     await userEvent.click(button);
     await waitFor(() => expect(localStorage.getItem('lang')).toBe('en'));
@@ -20,7 +20,7 @@ describe('language switch', () => {
   it('falls back to English when stored locale is unsupported', async () => {
     localStorage.setItem('lang', 'de');
     render(<Root />);
-    expect(screen.getByRole('heading').textContent).toBe('Voicerec');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Voicerec');
     await waitFor(() => expect(localStorage.getItem('lang')).toBe('en'));
   });
 
@@ -35,7 +35,7 @@ describe('language switch', () => {
 
     await userEvent.click(screen.getByTestId('switch'));
     await waitFor(() =>
-      expect(screen.getByRole('heading').textContent).toBe('Войсерек')
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Войсерек')
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Открыть диалог' }));

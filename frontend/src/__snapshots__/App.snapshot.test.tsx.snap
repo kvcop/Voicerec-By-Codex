@@ -15,16 +15,45 @@ exports[`App snapshot > matches the initial render snapshot 1`] = `
     >
       Voicerec
     </h1>
-    <button
-      aria-controls="radix-:r0:"
-      aria-expanded="false"
-      aria-haspopup="dialog"
-      class="_trigger_80b6b1"
-      data-state="closed"
-      type="button"
+    <div
+      class="_content_f2db1c"
     >
-      Open Dialog
-    </button>
+      <button
+        aria-controls="radix-:r0:"
+        aria-expanded="false"
+        aria-haspopup="dialog"
+        class="_trigger_80b6b1"
+        data-state="closed"
+        type="button"
+      >
+        Open Dialog
+      </button>
+      <section
+        aria-live="polite"
+        class="_container_15c5d8"
+      >
+        <div
+          class="_header_15c5d8"
+        >
+          <h2
+            class="_title_15c5d8"
+          >
+            Live transcript
+          </h2>
+          <span
+            class="_status_15c5d8"
+            data-state="unsupported"
+          >
+            Live transcript is unavailable in this environment.
+          </span>
+        </div>
+        <p
+          class="_placeholder_15c5d8"
+        >
+          Live transcript is unavailable in this environment.
+        </p>
+      </section>
+    </div>
   </div>
 </div>
 `;
