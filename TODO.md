@@ -20,7 +20,7 @@
 | D2 | ✓ | Синхронизировать пути в плане с деревом проекта: `backend/app/db/...` вместо `backend/app/database/...`; убрать ссылки на несуществующие тесты/каталоги | Docs/Plan | P1 | — |
 | I1 | ✓ | Добавить PostgreSQL в docker-compose (dev/CI), базовые параметры и healthchecks | Infra | P1 | — |
 | F2 | ✓ | Почистить фронтенд-зависимости, обновить lock/README, добавить vitest smoke-snapshot | Frontend/Build | P2 | — |
-| T2 | ✗ | Убрать `sys.path.append` из тестов: оформить backend как installable package или корректно настроить PYTHONPATH/uv; обновить инструкции | Tests/Infra | P2 | — |
+| T2 | ✓ | Убрать `sys.path.append` из тестов: оформить backend как installable package или корректно настроить PYTHONPATH/uv; обновить инструкции | Tests/Infra | P2 | — |
 | F3 | ✓ | Локализовать кнопку “Close” в диалоге (i18n словари, переключение языка) | Frontend/i18n | P2 | — |
 | F4 | ✗ | Заменить `next-intl` на Vite-дружелюбную i18n-библиотеку (напр., `react-intl`/`use-intl`/`lingui`) | Frontend/i18n | P2 | F2 |
 
