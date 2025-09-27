@@ -150,7 +150,7 @@ Voicerec-By-Codex/
 ## Key Architectural Decisions
 
 ### Repository Pattern
-- All database operations go through repository classes in `backend/app/database/repositories/`
+- All database modules live under `backend/app/db/` (session management, base metadata, and repository classes as they are introduced)
 - Separation of business logic from data access layer
 - Easier testing through dependency injection
 
