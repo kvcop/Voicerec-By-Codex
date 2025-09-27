@@ -5,39 +5,71 @@ import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
 import TranscriptStream, { EventSourceFactory } from './index';
 
+/* eslint-disable-next-line no-unused-vars */
+type GenericListener = (payload: unknown) => void;
+
 class MockEventSource {
   public static instances: MockEventSource[] = [];
   public readonly url: string;
   public onopen: (() => void) | null = null;
+<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
   public onmessage: ((data: string) => void) | null = null;
+=======
+>>>>>> main
   public onerror: (() => void) | null = null;
   private closed = false;
+  private readonly listeners: Record<string, Set<GenericListener>> = {};
 
   constructor(url: string) {
     this.url = url;
     MockEventSource.instances.push(this);
   }
 
-  emitOpen() {
-    if (this.closed) {
-      return;
+  addEventListener(type: string, listener: GenericListener) {
+    if (!this.listeners[type]) {
+      this.listeners[type] = new Set();
     }
-    this.onopen?.({});
+    this.listeners[type].add(listener);
   }
 
-  emitMessage(payload: unknown) {
+  removeEventListener(type: string, listener: GenericListener) {
+    this.listeners[type]?.delete(listener);
+    if (this.listeners[type] && this.listeners[type]?.size === 0) {
+      delete this.listeners[type];
+    }
+  }
+
+  private emit(type: string, payload: unknown) {
     if (this.closed) {
       return;
     }
     const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    this.onmessage?.(data);
+    const event = { data };
+    this.listeners[type]?.forEach((listener) => {
+      listener(event);
+    });
+  }
+
+  emitOpen() {
+    if (this.closed) {
+      return;
+    }
+    this.onopen?.();
+  }
+
+  emitTranscript(payload: unknown) {
+    this.emit('transcript', payload);
+  }
+
+  emitSummary(payload: unknown) {
+    this.emit('summary', payload);
   }
 
   emitError() {
     if (this.closed) {
       return;
     }
-    this.onerror?.({});
+    this.onerror?.();
   }
 
   close(): void {
@@ -72,7 +104,7 @@ describe('TranscriptStream', () => {
     renderWithIntl(<TranscriptStream meetingId="meeting-42" eventSourceFactory={factory} />);
 
     expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toBe('/api/meeting/stream/meeting-42');
+    expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-42/stream');
     expect(
       screen.getByText('Connecting to live transcript…', { exact: false })
     ).toBeTruthy();
@@ -88,7 +120,7 @@ describe('TranscriptStream', () => {
     );
 
     await act(async () => {
-      MockEventSource.instances[0].emitMessage({
+      MockEventSource.instances[0].emitTranscript({
         id: 'chunk-1',
         text: 'Добро пожаловать',
         speaker: 'Speaker 1',
@@ -99,6 +131,17 @@ describe('TranscriptStream', () => {
     expect(transcriptItem.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Speaker 1: Добро пожаловать',
     );
+
+    await act(async () => {
+      MockEventSource.instances[0].emitSummary({
+        summary: 'Основные итоги встречи',
+      });
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 3, name: 'Meeting summary' })
+    ).toBeTruthy();
+    expect(screen.getByText('Основные итоги встречи')).toBeTruthy();
   });
 
   it('shows an error status when the stream fails', async () => {
@@ -137,6 +180,7 @@ describe('TranscriptStream', () => {
     }
   });
 
+<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
   it('resets state and reconnects when meetingId changes', async () => {
     const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
 
@@ -173,5 +217,22 @@ describe('TranscriptStream', () => {
         screen.getByText('Waiting for transcript updates…', { selector: 'p' })
       ).toBeTruthy(),
     );
+=======
+  it('creates a meeting-specific stream endpoint on meeting change', async () => {
+    const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
+    const { rerender } = renderWithIntl(
+      <TranscriptStream meetingId="meeting-1" eventSourceFactory={factory} />,
+    );
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-1/stream');
+
+    await act(async () => {
+      rerender(<TranscriptStream meetingId="meeting-2" eventSourceFactory={factory} />);
+    });
+
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-2/stream');
+>>>>>> main
   });
 });

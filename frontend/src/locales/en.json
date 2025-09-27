@@ -22,5 +22,9 @@
   "transcriptStream.status.error": "Connection lost. Please retry.",
   "transcriptStream.status.unsupported": "Live transcript is unavailable in this environment.",
   "transcriptStream.empty": "Waiting for transcript updates…",
+<<<<<< codex/2025-09-27-add-frontend-upload-form-for-wav
   "transcriptStream.placeholder.noMeeting": "Upload a meeting audio file to start streaming updates."
+=======
+  "transcriptStream.summary.title": "Meeting summary"
+>>>>>> main
 }
