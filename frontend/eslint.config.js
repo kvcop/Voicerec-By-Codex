@@ -13,6 +13,11 @@ export default [
         window: 'readonly',
         localStorage: 'readonly',
         navigator: 'readonly',
+        fetch: 'readonly',
+        FormData: 'readonly',
+        File: 'readonly',
+        Response: 'readonly',
+        setTimeout: 'readonly',
       },
     },
   },
@@ -30,6 +35,8 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
     },
   },
 ];

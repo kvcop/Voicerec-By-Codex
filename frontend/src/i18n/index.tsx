@@ -8,6 +8,7 @@ export type Locale = keyof typeof messages;
 type AppMessages = (typeof messages)[Locale];
 type MessageKey = keyof AppMessages & string;
 type LocaleChangeHandler = React.Dispatch<React.SetStateAction<Locale>>;
+type MessageValues = Record<string, string | number | boolean | null | undefined>;
 
 interface TranslationContextValue {
   locale: Locale;
@@ -58,8 +59,8 @@ export function useLocale() {
 export function useTranslations() {
   const intl = useIntl();
   return React.useCallback(
-    <Key extends MessageKey>(key: Key): AppMessages[Key] =>
-      intl.formatMessage({ id: key }) as AppMessages[Key],
+    <Key extends MessageKey>(key: Key, values?: MessageValues): AppMessages[Key] =>
+      intl.formatMessage({ id: key }, values) as AppMessages[Key],
     [intl],
   );
 }

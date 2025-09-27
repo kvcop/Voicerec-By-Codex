@@ -5,7 +5,7 @@ import styles from './styles.module.css';
 
 type ConnectionState = 'connecting' | 'open' | 'error' | 'unsupported';
 
-export type EventSourceFactory = (url: string) => EventSource; // eslint-disable-line no-unused-vars
+export type EventSourceFactory = (url: string) => EventSource;
 
 interface TranscriptChunk {
   id?: string;
@@ -115,16 +115,19 @@ export default function TranscriptStream({
   React.useEffect(() => {
     const factory = eventSourceFactory ?? resolveDefaultFactory();
     if (!factory) {
+      setTranscriptChunks([]);
+      setSummary(null);
       setConnectionState('unsupported');
       return undefined;
     }
 
-    const source = factory(`/api/meeting/${meetingId}/stream`);
-    let isActive = true;
+    setConnectionState('connecting');
 
     setTranscriptChunks([]);
     setSummary(null);
-    setConnectionState('connecting');
+
+    const source = factory(`/api/meeting/${meetingId}/stream`);
+    let isActive = true;
 
     const handleOpen = () => {
       if (!isActive) {
@@ -175,15 +178,15 @@ export default function TranscriptStream({
     const summaryListener = (event: unknown) => {
       handleSummaryEvent(event);
     };
-    source.addEventListener('transcript', transcriptListener as any);
-    source.addEventListener('summary', summaryListener as any);
+    source.addEventListener('transcript', transcriptListener as EventListener);
+    source.addEventListener('summary', summaryListener as EventListener);
     source.onerror = handleError;
 
     return () => {
       isActive = false;
       source.onopen = null;
-      source.removeEventListener('transcript', transcriptListener as any);
-      source.removeEventListener('summary', summaryListener as any);
+      source.removeEventListener('transcript', transcriptListener as EventListener);
+      source.removeEventListener('summary', summaryListener as EventListener);
       source.onerror = null;
       source.close();
     };

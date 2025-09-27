@@ -22,3 +22,30 @@
   width: 100%;
   max-width: 720px;
 }
+
+.upload {
+  width: 100%;
+}
+
+.streamPlaceholder {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 32px rgba(31, 41, 55, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: #1f2933;
+}
+
+.streamPlaceholderTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.streamPlaceholderText {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #4b5563;
+}

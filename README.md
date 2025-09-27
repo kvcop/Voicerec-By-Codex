@@ -77,3 +77,5 @@ Frontend tests use **vitest** and the configuration resides in `frontend/vitest.
 ## Future Milestones
 - Secure storage for transcripts with encryption at rest is scheduled for completion by the end of 2025.
 
+For the latest architectural discoveries and open research, consult `LATEST_RESEARCH.md` alongside this overview.
+

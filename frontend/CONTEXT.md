@@ -114,6 +114,15 @@ class ErrorBoundary extends React.Component {
 - **File upload** for audio processing
 - **WebSocket** for real-time updates (future)
 
+### Upload-to-Stream Flow
+1. Пользователь выбирает WAV-файл через форму загрузки (`UploadForm`).
+2. Файл отправляется на `POST /api/meeting/upload`; в ответ приходит `meeting_id`.
+3. Полученный идентификатор сохраняется в состоянии приложения и пробрасывается в `TranscriptStream`.
+4. Компонент `TranscriptStream` подключается к `/api/meeting/stream/{meeting_id}` и отображает поступающие фрагменты.
+5. При повторной загрузке компонент полностью сбрасывает состояние и переподключается к новому ID.
+
+> Для автономной разработки можно выставить переменную окружения `VITE_USE_UPLOAD_MOCK=true` — фронтенд вернёт фиктивный `meeting_id` без запроса к бэкенду.
+
 ### External Libraries
 - **Radix UI**: Headless components for dialogs and future primitives
 - **React & React DOM**: Core UI rendering

@@ -1,10 +1,10 @@
 import React from 'react';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
 import TranscriptStream, { EventSourceFactory } from './index';
 
-/* eslint-disable-next-line no-unused-vars */
 type GenericListener = (payload: unknown) => void;
 
 class MockEventSource {
@@ -24,12 +24,12 @@ class MockEventSource {
     if (!this.listeners[type]) {
       this.listeners[type] = new Set();
     }
-    this.listeners[type].add(listener);
+    this.listeners[type]!.add(listener);
   }
 
   removeEventListener(type: string, listener: GenericListener) {
     this.listeners[type]?.delete(listener);
-    if (this.listeners[type] && this.listeners[type]?.size === 0) {
+    if (this.listeners[type]?.size === 0) {
       delete this.listeners[type];
     }
   }
@@ -100,18 +100,14 @@ describe('TranscriptStream', () => {
 
     expect(MockEventSource.instances).toHaveLength(1);
     expect(MockEventSource.instances[0].url).toBe('/api/meeting/meeting-42/stream');
-    expect(
-      screen.getByText('Connecting to live transcript…', { exact: false })
-    ).toBeTruthy();
+    expect(screen.getByText('Connecting to live transcript…', { exact: false })).toBeTruthy();
 
     await act(async () => {
       MockEventSource.instances[0].emitOpen();
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByText('Live transcription in progress', { exact: false })
-      ).toBeTruthy(),
+      expect(screen.getByText('Live transcription in progress', { exact: false })).toBeTruthy(),
     );
 
     await act(async () => {
@@ -173,6 +169,49 @@ describe('TranscriptStream', () => {
     } else {
       delete globalWindow.EventSource;
     }
+  });
+
+  it('resets state and reconnects when meetingId changes', async () => {
+    const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
+
+    const TestHarness: React.FC = () => {
+      const [currentId, setCurrentId] = React.useState('meeting-a');
+
+      return (
+        <div>
+          <button type="button" onClick={() => setCurrentId('meeting-b')}>
+            change
+          </button>
+          <TranscriptStream meetingId={currentId} eventSourceFactory={factory} />
+        </div>
+      );
+    };
+
+    renderWithIntl(<TestHarness />);
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    await act(async () => {
+      MockEventSource.instances[0].emitOpen();
+      MockEventSource.instances[0].emitTranscript({ text: 'First message' });
+      MockEventSource.instances[0].emitSummary({ summary: 'Summary A' });
+    });
+
+    expect(await screen.findByText('First message')).toBeTruthy();
+    expect(screen.getByText('Summary A')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'change' }));
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(2));
+    expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-b/stream');
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Waiting for transcript updates…', { selector: 'p' })
+      ).toBeTruthy(),
+    );
+
+    expect(screen.queryByText('First message')).toBeNull();
+    expect(screen.queryByText('Summary A')).toBeNull();
   });
 
   it('creates a meeting-specific stream endpoint on meeting change', async () => {
