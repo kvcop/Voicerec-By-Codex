@@ -11,7 +11,12 @@ import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.services.transcript import RAW_AUDIO_DIR, TranscriptService, get_transcript_service
+from app.services.transcript import (
+    RAW_AUDIO_DIR,
+    StreamItem,
+    TranscriptService,
+    get_transcript_service,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
@@ -70,9 +75,9 @@ async def _iter_upload_file(file: UploadFile, chunk_size: int = CHUNK_SIZE) -> A
 async def _event_generator(
     meeting_id: str, service: TranscriptService
 ) -> AsyncGenerator[str, None]:
-    async for payload in service.stream_transcript(meeting_id):
-        yield f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
-    yield 'event: end\ndata: {}\n\n'
+    async for item in service.stream_transcript(meeting_id):
+        payload = _serialize_stream_item(item)
+        yield payload
 
 
 @router.get('/stream/{meeting_id}')
@@ -85,3 +90,9 @@ async def stream_transcript(
         _event_generator(meeting_id, service),
         media_type='text/event-stream',
     )
+
+
+def _serialize_stream_item(item: StreamItem) -> str:
+    """Format a service stream item to SSE-compatible payload."""
+    data = json.dumps(item['data'], ensure_ascii=False)
+    return f'event: {item["event"]}\ndata: {data}\n\n'

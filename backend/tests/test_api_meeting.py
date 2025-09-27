@@ -177,10 +177,11 @@ def test_stream() -> None:
 
         async def stream_transcript(
             self, meeting_id: str
-        ) -> AsyncGenerator[dict[str, int | str], None]:
+        ) -> AsyncGenerator[dict[str, object], None]:
             self.calls.append(meeting_id)
-            yield {'index': 1, 'text': 'hello'}
-            yield {'index': 2, 'text': 'world'}
+            yield {'event': 'transcript', 'data': {'speaker': 'A', 'text': 'hello'}}
+            yield {'event': 'transcript', 'data': {'speaker': 'B', 'text': 'world'}}
+            yield {'event': 'summary', 'data': {'summary': 'Done'}}
 
     fake_service = _FakeTranscriptService()
     app.dependency_overrides[get_transcript_service] = lambda: fake_service
@@ -194,9 +195,11 @@ def test_stream() -> None:
         app.dependency_overrides.pop(get_transcript_service, None)
 
     assert lines == [
-        'data: {"index": 1, "text": "hello"}',
-        'data: {"index": 2, "text": "world"}',
-        'event: end',
-        'data: {}',
+        'event: transcript',
+        'data: {"speaker": "A", "text": "hello"}',
+        'event: transcript',
+        'data: {"speaker": "B", "text": "world"}',
+        'event: summary',
+        'data: {"summary": "Done"}',
     ]
     assert fake_service.calls == ['xyz']
