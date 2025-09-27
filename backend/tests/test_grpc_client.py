@@ -1,5 +1,6 @@
 """Tests for mock gRPC clients."""
 
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -19,8 +20,17 @@ async def test_transcribe_client() -> None:
     """Client returns transcript from fixture."""
     client = create_grpc_client('transcribe', FIXTURES / 'transcribe.json', 'mock')
     assert isinstance(client, MockTranscribeClient)
-    result = await client.run(Path('dummy.wav'))
+
+    consumed: list[bytes] = []
+
+    def _stream() -> Iterable[bytes]:
+        for chunk in (b'foo', b'bar'):
+            consumed.append(chunk)
+            yield chunk
+
+    result = await client.run(_stream())
     assert result == {'text': 'hello world'}
+    assert consumed == [b'foo', b'bar']
 
 
 @pytest.mark.asyncio
@@ -28,10 +38,19 @@ async def test_diarize_client() -> None:
     """Client returns diarization segments from fixture."""
     client = create_grpc_client('diarize', FIXTURES / 'diarize.json', 'mock')
     assert isinstance(client, MockDiarizeClient)
-    result = await client.run(Path('dummy.wav'))
+
+    consumed: list[bytes] = []
+
+    def _stream() -> Iterable[bytes]:
+        for chunk in (b'baz', b'qux'):
+            consumed.append(chunk)
+            yield chunk
+
+    result = await client.run(_stream())
     expected_segments = 2
     assert result['segments'][0]['speaker'] == 'A'
     assert len(result['segments']) == expected_segments
+    assert consumed == [b'baz', b'qux']
 
 
 @pytest.mark.asyncio

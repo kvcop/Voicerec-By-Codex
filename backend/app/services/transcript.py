@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from collections.abc import AsyncGenerator, Iterable
+    from collections.abc import AsyncGenerator, Iterable, Iterator
 
 from app.grpc_client import create_grpc_client
 
@@ -20,7 +20,7 @@ DEFAULT_TRANSCRIBE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'tra
 class TranscriptClientProtocol(Protocol):
     """Protocol describing client required by the transcript service."""
 
-    async def run(self, source: Path) -> dict[str, Any]:
+    async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
         """Return transcript payload for the provided audio source."""
 
 
@@ -33,6 +33,7 @@ class TranscriptService:
         *,
         raw_audio_dir: Path | None = None,
         words_per_chunk: int = 40,
+        audio_chunk_size: int = 64 * 1024,
     ) -> None:
         """Initialize the service.
 
@@ -40,14 +41,20 @@ class TranscriptService:
             transcript_client: Client responsible for running transcription.
             raw_audio_dir: Directory where meeting audio files are stored.
             words_per_chunk: Number of words per streamed chunk.
+            audio_chunk_size: Number of bytes read per chunk when streaming audio.
         """
         if words_per_chunk <= 0:
             message = 'words_per_chunk must be positive'
             raise ValueError(message)
 
+        if audio_chunk_size <= 0:
+            message = 'audio_chunk_size must be positive'
+            raise ValueError(message)
+
         self._client = transcript_client
         self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
         self._words_per_chunk = words_per_chunk
+        self._audio_chunk_size = audio_chunk_size
 
     async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, Any], None]:
         """Yield transcript chunks for the provided meeting identifier.
@@ -59,7 +66,7 @@ class TranscriptService:
             Dictionaries with chunk metadata and text content.
         """
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
-        payload = await self._client.run(audio_path)
+        payload = await self._client.run(self._read_audio_bytes(audio_path))
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}
@@ -92,6 +99,16 @@ class TranscriptService:
 
         for start in range(0, len(words), self._words_per_chunk):
             yield ' '.join(words[start : start + self._words_per_chunk])
+
+    def _read_audio_bytes(self, audio_path: Path) -> Iterable[bytes]:
+        """Return generator that yields audio file bytes."""
+
+        def _iterator() -> Iterator[bytes]:
+            with audio_path.open('rb') as audio_file:
+                while chunk := audio_file.read(self._audio_chunk_size):
+                    yield chunk
+
+        return _iterator()
 
 
 def _resolve_fixture_path() -> Path:
