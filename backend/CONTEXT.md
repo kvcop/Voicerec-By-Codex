@@ -25,6 +25,7 @@ metadata via SQLAlchemy repositories.
 - `app/db/base.py` – declarative base and metadata naming conventions.
 - `app/db/repositories/` – repository implementations for each model.
 - `app/db/session.py` – cached async engine and session factory helpers.
+- `app/db/schema.py` – validates the database migration version during startup.
 - `backend/tests/conftest.py` – async SQLite fixtures and FastAPI overrides.
 
 ## Request Flow Overview

@@ -19,6 +19,24 @@ Communication with the GPU node must be secured via VPN or mTLS. See
 `docs/gpu_security.md` for details and refer to `.env.example` for the required
 environment variables.
 
+## Database migrations
+Run Alembic migrations from the `backend/` directory after configuring the
+`DATABASE_URL` environment variable:
+
+```bash
+uv sync
+uv run alembic upgrade head
+```
+
+To create a new migration that reflects ORM model changes, execute:
+
+```bash
+uv run alembic revision --autogenerate -m "short description"
+uv run alembic upgrade head
+```
+
+Generated migration files live in `backend/migrations/versions/`.
+
 ## Mock GPU Services
 `infra/docker-compose.gpu.yml` launches CPU-only mock containers that emulate the GPU-backed models. Run `docker compose -f infra/docker-compose.gpu.yml up` during development to start `asr`, `speaker`, and `summarizer` services locally.
 

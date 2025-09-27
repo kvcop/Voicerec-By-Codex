@@ -11,6 +11,7 @@ from loguru import logger
 from app.api.meeting import legacy_router as meeting_legacy_router
 from app.api.meeting import router as meeting_router
 from app.core.logging import configure_logging
+from app.db.schema import ensure_schema_version
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -53,6 +54,12 @@ async def http_logging_middleware(
 
 app.include_router(meeting_router)
 app.include_router(meeting_legacy_router)
+
+
+@app.on_event('startup')
+async def verify_database_schema() -> None:
+    """Ensure the database schema matches the expected application version."""
+    await ensure_schema_version()
 
 
 @app.get('/health')
