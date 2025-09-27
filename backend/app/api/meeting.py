@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
     from pathlib import Path
 
-router = APIRouter()
+router = APIRouter(prefix='/api/meeting')
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -75,7 +75,7 @@ async def _event_generator(
     yield 'event: end\ndata: {}\n\n'
 
 
-@router.get('/stream/{meeting_id}')
+@router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
