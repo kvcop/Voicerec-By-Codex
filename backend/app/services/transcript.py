@@ -89,10 +89,6 @@ class TranscriptService:
         """Validate that raw audio exists for the provided meeting identifier."""
         self._resolve_audio_path(meeting_id)
 
-    def audio_exists(self, meeting_id: str) -> bool:
-        """Return whether audio for the provided meeting id is available."""
-        return (self._raw_audio_dir / f'{meeting_id}.wav').is_file()
-
     def _resolve_audio_path(self, meeting_id: str) -> Path:
         """Return audio file path and ensure it exists when enforcement is enabled."""
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'

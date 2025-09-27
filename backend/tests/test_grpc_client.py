@@ -1,5 +1,6 @@
 """Tests for mock gRPC clients."""
 
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
@@ -19,10 +20,11 @@ async def test_transcribe_client() -> None:
     """Client returns transcript from fixture."""
     client = create_grpc_client('transcribe', FIXTURES / 'transcribe.json', 'mock')
     assert isinstance(client, MockTranscribeClient)
-    result = await client.run(Path('dummy.wav'))
+
+    tracking = _TrackingIterable([b'hello', b' ', b'world'])
+    result = await client.run(tracking)
     assert result == {'text': 'hello world'}
-    chunks = [chunk async for chunk in client.stream_run(Path('dummy.wav'))]
-    assert chunks == [{'text': 'hello world'}]
+    assert tracking.consumed_chunks == [b'hello', b' ', b'world']
 
 
 @pytest.mark.asyncio
@@ -30,13 +32,13 @@ async def test_diarize_client() -> None:
     """Client returns diarization segments from fixture."""
     client = create_grpc_client('diarize', FIXTURES / 'diarize.json', 'mock')
     assert isinstance(client, MockDiarizeClient)
-    result = await client.run(Path('dummy.wav'))
+
+    tracking = _TrackingIterable([b'audio'])
+    result = await client.run(tracking)
     expected_segments = 2
     assert result['segments'][0]['speaker'] == 'A'
     assert len(result['segments']) == expected_segments
-    streamed = [chunk async for chunk in client.stream_run(Path('dummy.wav'))]
-    assert len(streamed) == expected_segments
-    assert streamed[0]['speaker'] == 'A'
+    assert tracking.consumed_chunks == [b'audio']
 
 
 @pytest.mark.asyncio
@@ -56,3 +58,16 @@ async def test_factory_uses_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('GRPC_CLIENT_TYPE', 'mock')
     client = create_grpc_client('transcribe', FIXTURES / 'transcribe.json')
     assert isinstance(client, MockTranscribeClient)
+
+
+class _TrackingIterable:
+    """Helper iterable that records consumed chunks."""
+
+    def __init__(self, chunks: Iterable[bytes]) -> None:
+        self._chunks = list(chunks)
+        self.consumed_chunks: list[bytes] = []
+
+    def __iter__(self) -> Iterator[bytes]:
+        for chunk in self._chunks:
+            self.consumed_chunks.append(chunk)
+            yield chunk

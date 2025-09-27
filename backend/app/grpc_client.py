@@ -14,7 +14,7 @@ from app.clients import DiarizeGrpcClient, SummarizeGrpcClient, TranscribeGrpcCl
 from app.core.settings import GPUSettings  # noqa: TC001
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterable
 
     from grpc import aio as grpc_aio
 
@@ -26,15 +26,16 @@ class MockTranscribeClient:
         self._fixture_path = fixture_path
         self._cached_data: dict[str, Any] | None = None
 
-    async def run(self, _: Path) -> dict[str, Any]:
+    async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
         """Return transcript data from fixture."""
+        _consume_stream(source)
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
         return copy.deepcopy(self._cached_data)
 
     async def stream_run(self, _: Path) -> AsyncIterator[dict[str, Any]]:
         """Yield transcript fragments read from fixture."""
-        payload = await self.run(Path('dummy.wav'))
+        payload = await self.run([b''])
         segments = payload.get('segments')
         if isinstance(segments, list):
             for segment in segments:
@@ -54,15 +55,16 @@ class MockDiarizeClient:
         self._fixture_path = fixture_path
         self._cached_data: dict[str, Any] | None = None
 
-    async def run(self, _: Path) -> dict[str, Any]:
+    async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
         """Return diarization data from fixture."""
+        _consume_stream(source)
         if self._cached_data is None:
             self._cached_data = json.loads(self._fixture_path.read_text(encoding='utf-8'))
         return copy.deepcopy(self._cached_data)
 
     async def stream_run(self, _: Path) -> AsyncIterator[dict[str, Any]]:
         """Yield diarization segments from fixture."""
-        payload = await self.run(Path('dummy.wav'))
+        payload = await self.run([b''])
         segments = payload.get('segments')
         if isinstance(segments, list):
             for segment in segments:
@@ -120,6 +122,14 @@ def _create_channel(settings: GPUSettings) -> grpc_aio.Channel:
         )
         return grpc.aio.secure_channel(target, credentials)
     return grpc.aio.insecure_channel(target)
+
+
+def _consume_stream(stream: Iterable[bytes]) -> None:
+    """Read the entire stream to emulate GPU client behaviour."""
+    for chunk in stream:
+        if not isinstance(chunk, (bytes, bytearray)):
+            message = 'Audio chunks must be bytes-like'
+            raise TypeError(message)
 
 
 def create_grpc_client(
