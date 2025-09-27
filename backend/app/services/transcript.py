@@ -10,6 +10,10 @@ if TYPE_CHECKING:  # pragma: no cover - imports for typing only
     from collections.abc import AsyncGenerator, Iterable, Mapping
 
     from sqlalchemy.ext.asyncio import AsyncSession
+else:  # pragma: no cover - define runtime reference for dependency evaluation
+    import sqlalchemy.ext.asyncio as _sqlalchemy_asyncio
+
+    AsyncSession = _sqlalchemy_asyncio.AsyncSession
 
 from fastapi import Depends
 
