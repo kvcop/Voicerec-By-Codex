@@ -8,5 +8,6 @@
   "transcriptStream.status.open": "Транскрипция в реальном времени активна",
   "transcriptStream.status.error": "Соединение потеряно. Повторите попытку.",
   "transcriptStream.status.unsupported": "Поток транскрипции недоступен в этом окружении.",
-  "transcriptStream.empty": "Ожидание новых фрагментов транскрипции…"
+  "transcriptStream.empty": "Ожидание новых фрагментов транскрипции…",
+  "transcriptStream.summary.title": "Итоговое резюме"
 }

@@ -8,5 +8,6 @@
   "transcriptStream.status.open": "Live transcription in progress",
   "transcriptStream.status.error": "Connection lost. Please retry.",
   "transcriptStream.status.unsupported": "Live transcript is unavailable in this environment.",
-  "transcriptStream.empty": "Waiting for transcript updates…"
+  "transcriptStream.empty": "Waiting for transcript updates…",
+  "transcriptStream.summary.title": "Meeting summary"
 }
