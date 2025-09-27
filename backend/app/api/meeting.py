@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
     MeetingNotFoundError,
+    StreamItem,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
@@ -23,6 +24,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
 
 router = APIRouter(prefix='/api/meeting')
+legacy_router = APIRouter()
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -81,9 +83,9 @@ async def _iter_upload_file(file: UploadFile, chunk_size: int = CHUNK_SIZE) -> A
 async def _event_generator(
     meeting_id: str, service: TranscriptService
 ) -> AsyncGenerator[str, None]:
-    async for payload in service.stream_transcript(meeting_id):
-        yield f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
-    yield 'event: end\ndata: {}\n\n'
+    async for item in service.stream_transcript(meeting_id):
+        payload = _serialize_stream_item(item)
+        yield payload
 
 
 @router.get('/{meeting_id}/stream')
@@ -92,6 +94,20 @@ async def stream_transcript(
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    return _streaming_response(meeting_id, service)
+
+
+@legacy_router.get('/stream/{meeting_id}', include_in_schema=False)
+async def stream_transcript_legacy(
+    meeting_id: str,
+    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+) -> StreamingResponse:
+    """Legacy path kept for backward compatibility with early clients."""
+    return _streaming_response(meeting_id, service)
+
+
+def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
+    """Return streaming response after verifying audio availability."""
     try:
         service.ensure_audio_available(meeting_id)
     except MeetingNotFoundError as exc:
@@ -103,3 +119,9 @@ async def stream_transcript(
         _event_generator(meeting_id, service),
         media_type='text/event-stream',
     )
+
+
+def _serialize_stream_item(item: StreamItem) -> str:
+    """Format a service stream item to SSE-compatible payload."""
+    data = json.dumps(item['data'], ensure_ascii=False)
+    return f'event: {item["event"]}\ndata: {data}\n\n'

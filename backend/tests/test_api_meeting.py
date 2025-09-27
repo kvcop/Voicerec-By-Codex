@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, NoReturn, Self, cast
 
 from fastapi.testclient import TestClient
 
@@ -23,6 +23,8 @@ if TYPE_CHECKING:  # pragma: no cover - imports for type hints
 
     import pytest
     from fastapi import UploadFile
+
+    from app.services.meeting_processing import MeetingProcessingService
 
 client = TestClient(app)
 
@@ -203,7 +205,7 @@ def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 
 
 def test_stream() -> None:
-    """SSE endpoint streams transcript fragments and sends termination event."""
+    """SSE endpoint streams transcript fragments and summary events."""
 
     class _FakeTranscriptService:
         def __init__(self) -> None:
@@ -214,10 +216,11 @@ def test_stream() -> None:
 
         async def stream_transcript(
             self, meeting_id: str
-        ) -> AsyncGenerator[dict[str, int | str], None]:
+        ) -> AsyncGenerator[dict[str, object], None]:
             self.calls.append(meeting_id)
-            yield {'index': 1, 'text': 'hello'}
-            yield {'index': 2, 'text': 'world'}
+            yield {'event': 'transcript', 'data': {'speaker': 'A', 'text': 'hello'}}
+            yield {'event': 'transcript', 'data': {'speaker': 'B', 'text': 'world'}}
+            yield {'event': 'summary', 'data': {'summary': 'Done'}}
 
     fake_service = _FakeTranscriptService()
     app.dependency_overrides[get_transcript_service] = lambda: fake_service
@@ -231,30 +234,39 @@ def test_stream() -> None:
         app.dependency_overrides.pop(get_transcript_service, None)
 
     assert lines == [
-        'data: {"index": 1, "text": "hello"}',
-        'data: {"index": 2, "text": "world"}',
-        'event: end',
-        'data: {}',
+        'event: transcript',
+        'data: {"speaker": "A", "text": "hello"}',
+        'event: transcript',
+        'data: {"speaker": "B", "text": "world"}',
+        'event: summary',
+        'data: {"summary": "Done"}',
     ]
     assert fake_service.calls == ['xyz']
 
 
 def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
-    """Missing meeting audio results in 404 without invoking transcript client."""
+    """Missing meeting audio results in 404 without invoking transcript processor."""
 
-    class _FakeClient:
+    class _StubProcessor:
         def __init__(self) -> None:
             self.calls: list[str] = []
             self.iterated = False
 
+<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
         async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
             self.calls.append('called')
             for _ in source:
                 self.iterated = True
             return {'segments': [{'text': 'should not be used'}]}
+=======
+        async def process(self, audio_path: Path) -> NoReturn:
+            self.calls.append(audio_path)
+            message = 'process should not be called for missing meetings'
+            raise AssertionError(message)
+>>>>>> main
 
-    fake_client = _FakeClient()
-    service = TranscriptService(fake_client, raw_audio_dir=tmp_path)
+    processor = _StubProcessor()
+    service = TranscriptService(cast('MeetingProcessingService', processor), raw_audio_dir=tmp_path)
     app.dependency_overrides[get_transcript_service] = lambda: service
 
     try:
@@ -264,5 +276,9 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Meeting missing not found'}
+<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
     assert fake_client.calls == []
     assert fake_client.iterated is False
+=======
+    assert processor.calls == []
+>>>>>> main
