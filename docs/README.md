@@ -7,6 +7,7 @@
 - **process_overview.md** – общая схема работы сервиса (mermaid)
 - **filesystem_structure.md** – схема использования файловой системы (mermaid)
 - **gpu_security.md** – варианты защиты подключения к GPU-ноде
+- **ai-context/speech_stack_research.md** – результаты исследования стеков моделей и требований к GPU-сервисам
 - **secure_storage_todo.md** – требования к защищённому хранилищу
 
 ## Переменные окружения
