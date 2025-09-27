@@ -63,6 +63,11 @@ class Settings(BaseSettings):
         alias='RAW_AUDIO_DIR',
         description='Directory for storing raw meeting audio files',
     )
+    asr_model_size: str = Field(
+        default='large-v2',
+        alias='ASR_MODEL_SIZE',
+        description='Whisper model size used by the GPU ASR service',
+    )
     gpu: GPUSettings = Field(default_factory=GPUSettings)
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
