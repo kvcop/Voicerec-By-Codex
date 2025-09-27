@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
     MeetingNotFoundError,
+    StreamItem,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
@@ -82,9 +83,9 @@ async def _iter_upload_file(file: UploadFile, chunk_size: int = CHUNK_SIZE) -> A
 async def _event_generator(
     meeting_id: str, service: TranscriptService
 ) -> AsyncGenerator[str, None]:
-    async for payload in service.stream_transcript(meeting_id):
-        yield f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
-    yield 'event: end\ndata: {}\n\n'
+    async for item in service.stream_transcript(meeting_id):
+        payload = _serialize_stream_item(item)
+        yield payload
 
 
 @router.get('/{meeting_id}/stream')
@@ -118,3 +119,9 @@ def _streaming_response(meeting_id: str, service: TranscriptService) -> Streamin
         _event_generator(meeting_id, service),
         media_type='text/event-stream',
     )
+
+
+def _serialize_stream_item(item: StreamItem) -> str:
+    """Format a service stream item to SSE-compatible payload."""
+    data = json.dumps(item['data'], ensure_ascii=False)
+    return f'event: {item["event"]}\ndata: {data}\n\n'
