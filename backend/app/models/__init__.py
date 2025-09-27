@@ -1,3 +1,7 @@
 """Database models package."""
 
-# Model modules will be discovered dynamically via ``app.db.base``.
+from .meeting import Meeting, MeetingStatus
+from .transcript import Transcript
+from .user import User
+
+__all__ = ['Meeting', 'MeetingStatus', 'Transcript', 'User']

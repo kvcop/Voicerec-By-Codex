@@ -4,25 +4,45 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
-    from collections.abc import AsyncGenerator, Iterable
+    from collections.abc import AsyncGenerator, Iterable, Mapping
 
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
 from app.core.settings import GPUSettings
+=======
+from app.core.settings import get_settings
+>>>>>> main
 from app.grpc_client import create_grpc_client
+from app.services.meeting_processing import (
+    DiarizeClientProtocol,
+    MeetingProcessingResult,
+    MeetingProcessingService,
+    SummarizeClientProtocol,
+    TranscribeClientProtocol,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
-RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_TRANSCRIBE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'transcribe.json'
+DEFAULT_DIARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'diarize.json'
+DEFAULT_SUMMARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'summarize.json'
 
 
-class TranscriptClientProtocol(Protocol):
-    """Protocol describing client required by the transcript service."""
+def resolve_raw_audio_dir() -> Path:
+    """Return directory configured for storing raw audio files."""
+    directory = get_settings().raw_audio_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
 
-    async def run(self, source: Path) -> dict[str, Any]:
-        """Return transcript payload for the provided audio source."""
+
+class MeetingNotFoundError(Exception):
+    """Raised when requested meeting audio file is missing."""
+
+    def __init__(self, meeting_id: str) -> None:
+        message = f'Meeting {meeting_id} not found'
+        super().__init__(message)
+        self.meeting_id = meeting_id
 
 
 class MeetingNotFoundError(Exception):
@@ -39,17 +59,21 @@ class TranscriptService:
 
     def __init__(
         self,
-        transcript_client: TranscriptClientProtocol,
+        meeting_processor: MeetingProcessingService,
         *,
         raw_audio_dir: Path | None = None,
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
         words_per_chunk: int = 40,
         enforce_audio_presence: bool = True,
+=======
+>>>>>> main
     ) -> None:
         """Initialize the service.
 
         Args:
-            transcript_client: Client responsible for running transcription.
+            meeting_processor: Service responsible for aggregating meeting data.
             raw_audio_dir: Directory where meeting audio files are stored.
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
             words_per_chunk: Number of words per streamed chunk.
             enforce_audio_presence: Whether to ensure the audio file exists before
                 invoking the client.
@@ -62,17 +86,40 @@ class TranscriptService:
         self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
         self._words_per_chunk = words_per_chunk
         self._enforce_audio_presence = enforce_audio_presence
+=======
+        """
+        self._meeting_processor = meeting_processor
+        self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
+>>>>>> main
 
-    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, Any], None]:
-        """Yield transcript chunks for the provided meeting identifier.
+    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[StreamItem, None]:
+        """Yield meeting events and final summary for the provided meeting.
 
         Args:
             meeting_id: Identifier of the meeting whose transcript should be streamed.
 
         Yields:
-            Dictionaries with chunk metadata and text content.
+            Dictionaries describing SSE events.
         """
+        audio_path = self._resolve_audio_path(meeting_id)
+        result = await self._meeting_processor.process(audio_path)
+
+        for item in self._yield_transcript_events(result):
+            yield item
+        yield self._build_summary_item(result)
+
+    def ensure_audio_available(self, meeting_id: str) -> None:
+        """Validate that raw audio exists for the provided meeting identifier."""
+        self._resolve_audio_path(meeting_id)
+
+    def audio_exists(self, meeting_id: str) -> bool:
+        """Return whether audio for the provided meeting id is available."""
+        return (self._raw_audio_dir / f'{meeting_id}.wav').is_file()
+
+    def _resolve_audio_path(self, meeting_id: str) -> Path:
+        """Return audio file path and ensure it exists."""
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
         if self._enforce_audio_presence:
             audio_path = self._resolve_audio_path(meeting_id)
         payload = await self._client.run(audio_path)
@@ -87,10 +134,13 @@ class TranscriptService:
     def _resolve_audio_path(self, meeting_id: str) -> Path:
         """Return audio file path and ensure it exists."""
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+=======
+>>>>>> main
         if not audio_path.is_file():
             raise MeetingNotFoundError(meeting_id)
         return audio_path
 
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
     def _extract_chunks(self, payload: dict[str, Any]) -> Iterable[str]:
         """Extract text chunks from transcription payload."""
         segments = payload.get('segments')
@@ -119,6 +169,16 @@ class TranscriptService:
 
         for start in range(0, len(words), self._words_per_chunk):
             yield ' '.join(words[start : start + self._words_per_chunk])
+=======
+    def _yield_transcript_events(self, result: MeetingProcessingResult) -> Iterable[StreamItem]:
+        """Return transcript events for the SSE stream."""
+        for event in result.events:
+            yield {'event': 'transcript', 'data': event}
+
+    def _build_summary_item(self, result: MeetingProcessingResult) -> StreamItem:
+        """Return final summary SSE payload."""
+        return {'event': 'summary', 'data': {'summary': result.summary}}
+>>>>>> main
 
 
 def resolve_transcribe_fixture_path() -> Path:
@@ -129,6 +189,7 @@ def resolve_transcribe_fixture_path() -> Path:
     return DEFAULT_TRANSCRIBE_FIXTURE
 
 
+<<<<<< codex/2025-09-27-generate-python-stubs-and-async-wrappers
 def get_transcript_service(
     client_type: str | None = None,
     gpu_settings: GPUSettings | None = None,
@@ -146,3 +207,44 @@ def get_transcript_service(
         gpu_settings=gpu_settings,
     )
     return TranscriptService(cast('TranscriptClientProtocol', client))
+=======
+def _resolve_diarize_fixture_path() -> Path:
+    """Determine diarization fixture path for the mock gRPC client."""
+    env_path = os.getenv('DIARIZE_FIXTURE_PATH')
+    if env_path:
+        return Path(env_path)
+    return DEFAULT_DIARIZE_FIXTURE
+
+
+def _resolve_summarize_fixture_path() -> Path:
+    """Determine summarize fixture path for the mock gRPC client."""
+    env_path = os.getenv('SUMMARIZE_FIXTURE_PATH')
+    if env_path:
+        return Path(env_path)
+    return DEFAULT_SUMMARIZE_FIXTURE
+
+
+def get_transcript_service() -> TranscriptService:
+    """Return transcript service instance configured with mock gRPC client."""
+    transcribe_fixture = _resolve_fixture_path()
+    diarize_fixture = _resolve_diarize_fixture_path()
+    summarize_fixture = _resolve_summarize_fixture_path()
+
+    transcribe_client = create_grpc_client('transcribe', transcribe_fixture)
+    diarize_client = create_grpc_client('diarize', diarize_fixture)
+    summarize_client = create_grpc_client('summarize', summarize_fixture)
+
+    processor = MeetingProcessingService(
+        cast('TranscribeClientProtocol', transcribe_client),
+        cast('DiarizeClientProtocol', diarize_client),
+        cast('SummarizeClientProtocol', summarize_client),
+    )
+    return TranscriptService(processor)
+
+
+class StreamItem(TypedDict):
+    """Structured representation of SSE events emitted by the service."""
+
+    event: Literal['transcript', 'summary']
+    data: Mapping[str, Any]
+>>>>>> main
