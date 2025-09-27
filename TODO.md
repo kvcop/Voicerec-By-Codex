@@ -7,7 +7,7 @@
 | DX1 | ✓ | Добавить `data/raw/` (и подобные артефакты) в `.gitignore`, исключить уже попавшие файлы из репо | Repo/DevEx | P0 | — |
 | B1 | ✓ | Базовая ORM-инфраструктура: `DeclarativeBase`, `metadata`, точка импорта моделей | Backend/DB | P0 | — |
 | B2 | ✓ | Модели **User, Meeting, Transcript** с связями/индексами | Backend/DB | P0 | B1 |
-| B3 | ✗ | Репозитории (CRUD) в `app/db/repositories/` (или единый слой данных) | Backend/DB | P0 | B1–B2 |
+| B3 | ✓ | Репозитории (CRUD) в `app/db/repositories/` (или единый слой данных) | Backend/DB | P0 | B1–B2 |
 | T1 | ✓ | Async тестовая БД (SQLite/aiosqlite), фикстуры, создание/очистка схемы, FastAPI overrides | Tests/Infra | P0 | B1 |
 | A2 | ✓ | `/upload`: асинхронная потоковая запись чанками + проверка MIME; негативные/large-file тесты | Backend/API | P0 | — |
 | S1 | ✗ | Вынести `TranscriptService` в сервисный слой и внедрять через DI (FastAPI Depends); принимать `AsyncSession` и (в будущем) gRPC-клиентов | Backend/Services | P0 | B1–B3, T1 |
