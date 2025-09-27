@@ -53,9 +53,18 @@ class PipelineService:
         summarize_client: SummarizeClientProtocol,
         *,
         raw_audio_dir: Path | None = None,
-        words_per_chunk: int = 40,
+        enforce_audio_presence: bool = True,
     ) -> None:
-        """Store dependencies for later use."""
+        """Store dependencies for later use.
+
+        Args:
+            transcribe_client: Client responsible for producing transcript chunks.
+            diarize_client: Client that yields diarization segments.
+            summarize_client: Client that generates summary payloads.
+            raw_audio_dir: Directory containing recorded meeting audio.
+            enforce_audio_presence: Whether transcript streaming should require the
+                raw audio file to exist on disk.
+        """
         self._transcribe_client = transcribe_client
         self._diarize_client = diarize_client
         self._summarize_client = summarize_client
@@ -63,7 +72,7 @@ class PipelineService:
         self._transcript_service = TranscriptService(
             transcribe_client,
             raw_audio_dir=self._raw_audio_dir,
-            words_per_chunk=words_per_chunk,
+            enforce_audio_presence=enforce_audio_presence,
         )
 
     async def stream_pipeline(self, meeting_id: str) -> AsyncIterator[dict[str, Any]]:
@@ -119,6 +128,7 @@ def get_pipeline_service(
     resolved_type = client_type or os.getenv('GRPC_CLIENT_TYPE', 'mock')
     if resolved_type == 'grpc' and gpu_settings is None:
         gpu_settings = GPUSettings()
+    enforce_audio_presence = resolved_type != 'mock'
 
     transcribe_client = create_grpc_client(
         'transcribe',
@@ -143,6 +153,7 @@ def get_pipeline_service(
         cast('TranscriptClientProtocol', transcribe_client),
         cast('DiarizeClientProtocol', diarize_client),
         cast('SummarizeClientProtocol', summarize_client),
+        enforce_audio_presence=enforce_audio_presence,
     )
 
 

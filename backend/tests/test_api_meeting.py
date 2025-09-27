@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from fastapi.testclient import TestClient
 
 from app.api import meeting
 from app.main import app
-from app.services.transcript import get_transcript_service
+from app.services.transcript import TranscriptService, get_transcript_service
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from collections.abc import AsyncGenerator
@@ -76,7 +76,7 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
 
-    response = client.post('/upload', files={'file': ('audio.wav', data, 'audio/wav')})
+    response = client.post('/api/meeting/upload', files={'file': ('audio.wav', data, 'audio/wav')})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
@@ -89,7 +89,9 @@ def test_upload_rejects_non_wav(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     """Uploading non-WAV files is rejected with 415 status."""
     monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
 
-    response = client.post('/upload', files={'file': ('notes.txt', b'123', 'text/plain')})
+    response = client.post(
+        '/api/meeting/upload', files={'file': ('notes.txt', b'123', 'text/plain')}
+    )
 
     assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
     assert response.json() == {'detail': 'Only WAV audio is supported.'}
@@ -100,7 +102,9 @@ def test_upload_accepts_mixed_case_mime(tmp_path: Path, monkeypatch: pytest.Monk
     """Mixed-case WAV MIME types are accepted."""
     monkeypatch.setattr(meeting, 'RAW_AUDIO_DIR', tmp_path)
 
-    response = client.post('/upload', files={'file': ('audio.wav', b'abc', 'audio/WAV')})
+    response = client.post(
+        '/api/meeting/upload', files={'file': ('audio.wav', b'abc', 'audio/WAV')}
+    )
 
     assert response.status_code == HTTPStatus.OK
     assert 'meeting_id' in response.json()
@@ -160,7 +164,9 @@ def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
     monkeypatch.setattr(meeting, '_iter_upload_file', _fake_iter)
 
-    response = client.post('/upload', files={'file': ('audio.wav', b'dummy', 'audio/wav')})
+    response = client.post(
+        '/api/meeting/upload', files={'file': ('audio.wav', b'dummy', 'audio/wav')}
+    )
 
     assert response.status_code == HTTPStatus.OK
     saved = tmp_path / f'{meeting_id}.wav'
@@ -175,6 +181,9 @@ def test_stream() -> None:
         def __init__(self) -> None:
             self.calls: list[str] = []
 
+        def ensure_audio_available(self, meeting_id: str) -> None:
+            del meeting_id
+
         async def stream_transcript(
             self, meeting_id: str
         ) -> AsyncGenerator[dict[str, int | str], None]:
@@ -187,7 +196,7 @@ def test_stream() -> None:
 
     lines: list[str] = []
     try:
-        with client.stream('GET', '/stream/xyz') as response:
+        with client.stream('GET', '/api/meeting/xyz/stream') as response:
             assert response.status_code == HTTPStatus.OK
             lines = [line for line in response.iter_lines() if line != '']
     finally:
@@ -200,3 +209,28 @@ def test_stream() -> None:
         'data: {}',
     ]
     assert fake_service.calls == ['xyz']
+
+
+def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
+    """Missing meeting audio results in 404 without invoking transcript client."""
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[Path] = []
+
+        async def run(self, source: Path) -> dict[str, Any]:
+            self.calls.append(source)
+            return {'segments': [{'text': 'should not be used'}]}
+
+    fake_client = _FakeClient()
+    service = TranscriptService(fake_client, raw_audio_dir=tmp_path)
+    app.dependency_overrides[get_transcript_service] = lambda: service
+
+    try:
+        response = client.get('/stream/missing')
+    finally:
+        app.dependency_overrides.pop(get_transcript_service, None)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json() == {'detail': 'Meeting missing not found'}
+    assert fake_client.calls == []

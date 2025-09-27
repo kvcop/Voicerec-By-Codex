@@ -25,6 +25,15 @@ class TranscriptClientProtocol(Protocol):
         """Return transcript payload for the provided audio source."""
 
 
+class MeetingNotFoundError(Exception):
+    """Raised when requested meeting audio file is missing."""
+
+    def __init__(self, meeting_id: str) -> None:
+        message = f'Meeting {meeting_id} not found'
+        super().__init__(message)
+        self.meeting_id = meeting_id
+
+
 class TranscriptService:
     """Stream transcript fragments for SSE consumption."""
 
@@ -34,6 +43,7 @@ class TranscriptService:
         *,
         raw_audio_dir: Path | None = None,
         words_per_chunk: int = 40,
+        enforce_audio_presence: bool = True,
     ) -> None:
         """Initialize the service.
 
@@ -41,6 +51,8 @@ class TranscriptService:
             transcript_client: Client responsible for running transcription.
             raw_audio_dir: Directory where meeting audio files are stored.
             words_per_chunk: Number of words per streamed chunk.
+            enforce_audio_presence: Whether to ensure the audio file exists before
+                invoking the client.
         """
         if words_per_chunk <= 0:
             message = 'words_per_chunk must be positive'
@@ -49,6 +61,7 @@ class TranscriptService:
         self._client = transcript_client
         self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
         self._words_per_chunk = words_per_chunk
+        self._enforce_audio_presence = enforce_audio_presence
 
     async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, Any], None]:
         """Yield transcript chunks for the provided meeting identifier.
@@ -60,10 +73,23 @@ class TranscriptService:
             Dictionaries with chunk metadata and text content.
         """
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        if self._enforce_audio_presence:
+            audio_path = self._resolve_audio_path(meeting_id)
         payload = await self._client.run(audio_path)
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}
+
+    def ensure_audio_available(self, meeting_id: str) -> None:
+        """Validate that raw audio exists for the provided meeting identifier."""
+        self._resolve_audio_path(meeting_id)
+
+    def _resolve_audio_path(self, meeting_id: str) -> Path:
+        """Return audio file path and ensure it exists."""
+        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        if not audio_path.is_file():
+            raise MeetingNotFoundError(meeting_id)
+        return audio_path
 
     def _extract_chunks(self, payload: dict[str, Any]) -> Iterable[str]:
         """Extract text chunks from transcription payload."""
