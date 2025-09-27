@@ -11,6 +11,7 @@ from pydantic import ValidationError
 MODULE_PATH = 'app.core.settings'
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from types import ModuleType
 
 
@@ -84,3 +85,31 @@ def test_tls_valid(monkeypatch: pytest.MonkeyPatch) -> None:
         grpc_tls_key='key',
     )
     assert settings.grpc_tls_cert == 'cert'
+
+
+def test_raw_audio_dir_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Raw audio directory defaults to data/raw under repository root."""
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://example')
+    monkeypatch.setenv('GPU_GRPC_HOST', 'host')
+    monkeypatch.setenv('GPU_GRPC_PORT', '1234')
+    monkeypatch.delenv('RAW_AUDIO_DIR', raising=False)
+
+    module = _reload_settings_module()
+
+    settings = module.Settings()
+
+    assert settings.raw_audio_dir == module.DEFAULT_RAW_AUDIO_DIR
+
+
+def test_raw_audio_dir_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Environment variable overrides raw audio directory path."""
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://example')
+    monkeypatch.setenv('GPU_GRPC_HOST', 'host')
+    monkeypatch.setenv('GPU_GRPC_PORT', '1234')
+    monkeypatch.setenv('RAW_AUDIO_DIR', str(tmp_path))
+
+    module = _reload_settings_module()
+
+    settings = module.Settings()
+
+    assert settings.raw_audio_dir == tmp_path

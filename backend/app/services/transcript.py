@@ -9,12 +9,18 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from collections.abc import AsyncGenerator, Iterable, Iterator
 
+from app.core.settings import get_settings
 from app.grpc_client import create_grpc_client
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
-RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_TRANSCRIBE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'transcribe.json'
+
+
+def resolve_raw_audio_dir() -> Path:
+    """Return directory configured for storing raw audio files."""
+    directory = get_settings().raw_audio_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
 
 
 class TranscriptClientProtocol(Protocol):
@@ -61,7 +67,7 @@ class TranscriptService:
             raise ValueError(message)
 
         self._client = transcript_client
-        self._raw_audio_dir = raw_audio_dir or RAW_AUDIO_DIR
+        self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
         self._words_per_chunk = words_per_chunk
         self._audio_chunk_size = audio_chunk_size
 
@@ -75,7 +81,11 @@ class TranscriptService:
             Dictionaries with chunk metadata and text content.
         """
         audio_path = self._resolve_audio_path(meeting_id)
+<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
         payload = await self._client.run(self._read_audio_bytes(audio_path))
+=======
+        payload = await self._client.run(audio_path)
+>>>>>> main
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}

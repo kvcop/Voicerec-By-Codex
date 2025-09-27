@@ -1,9 +1,9 @@
 """Service layer package."""
 
 from app.services.transcript import (
-    RAW_AUDIO_DIR,
     TranscriptService,
     get_transcript_service,
+    resolve_raw_audio_dir,
 )
 
-__all__ = ['RAW_AUDIO_DIR', 'TranscriptService', 'get_transcript_service']
+__all__ = ['TranscriptService', 'get_transcript_service', 'resolve_raw_audio_dir']
