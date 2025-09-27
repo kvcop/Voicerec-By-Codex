@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
@@ -12,15 +13,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
-    RAW_AUDIO_DIR,
     MeetingNotFoundError,
     TranscriptService,
     get_transcript_service,
+    resolve_raw_audio_dir,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
-    from pathlib import Path
 
 router = APIRouter(prefix='/api/meeting')
 
@@ -32,12 +32,18 @@ ALLOWED_WAV_MIME_TYPES = {
     'audio/wave',
 }
 
-# Directory for raw audio files.
-RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+def get_raw_audio_dir() -> Path:
+    """Return configured directory for storing raw audio files."""
+    directory = resolve_raw_audio_dir()
+    return Path(directory)
 
 
 @router.post('/upload')
-async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]:
+async def upload_audio(
+    file: Annotated[UploadFile, File(...)],
+    raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
+) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     content_type = (file.content_type or '').lower()
     if content_type not in ALLOWED_WAV_MIME_TYPES:
@@ -47,7 +53,7 @@ async def upload_audio(file: Annotated[UploadFile, File(...)]) -> dict[str, str]
         )
 
     meeting_id = uuid4().hex
-    dest = RAW_AUDIO_DIR / f'{meeting_id}.wav'
+    dest = raw_audio_dir / f'{meeting_id}.wav'
     # TODO: перенести в защищённое хранилище
     await _store_upload(file, dest)
     return {'meeting_id': meeting_id}

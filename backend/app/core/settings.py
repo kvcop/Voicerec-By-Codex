@@ -1,9 +1,13 @@
 """Application configuration utilities."""
 
 from functools import cache
+from pathlib import Path
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
 
 
 class GPUSettings(BaseSettings):
@@ -53,6 +57,11 @@ class Settings(BaseSettings):
     database_url: str = Field(
         alias='DATABASE_URL',
         description='Database connection string',
+    )
+    raw_audio_dir: Path = Field(
+        default=DEFAULT_RAW_AUDIO_DIR,
+        alias='RAW_AUDIO_DIR',
+        description='Directory for storing raw meeting audio files',
     )
     gpu: GPUSettings = Field(default_factory=GPUSettings)
 
