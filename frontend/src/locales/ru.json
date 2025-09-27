@@ -2,5 +2,11 @@
   "title": "Войсерек",
   "openDialog": "Открыть диалог",
   "dialogText": "Привет, мир",
-  "closeDialog": "Закрыть"
+  "closeDialog": "Закрыть",
+  "transcriptStream.title": "Живой транскрипт",
+  "transcriptStream.status.connecting": "Подключение к потоку транскрипции…",
+  "transcriptStream.status.open": "Транскрипция в реальном времени активна",
+  "transcriptStream.status.error": "Соединение потеряно. Повторите попытку.",
+  "transcriptStream.status.unsupported": "Поток транскрипции недоступен в этом окружении.",
+  "transcriptStream.empty": "Ожидание новых фрагментов транскрипции…"
 }

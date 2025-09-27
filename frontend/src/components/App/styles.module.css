@@ -6,9 +6,19 @@
   min-height: 100vh;
   font-family: Arial, Helvetica, sans-serif;
   background: linear-gradient(135deg, #e0f7fa, #e1bee7);
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 .title {
   margin-bottom: 1rem;
   font-size: 2rem;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 720px;
 }
