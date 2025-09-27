@@ -111,16 +111,20 @@ class SummarizeGrpcClient(_BaseGrpcClient):
         """Fetch summary for the provided transcript text."""
         request = summarize_pb2.TextRequest(text=text)
         response = await self._stub.Run(request)
-        return _message_to_dict(response)
+        payload = _message_to_dict(response)
+        summary_text = payload.get('text')
+        if isinstance(summary_text, str):
+            return {'summary': summary_text}
+        return payload
 
     async def stream_run(self, text: str) -> AsyncIterator[dict[str, Any]]:
         """Yield summary chunks. Currently returns a single response."""
         payload = await self.run(text)
-        summary_text = payload.get('text')
+        summary_text = payload.get('summary')
         if isinstance(summary_text, str):
-            yield {'text': summary_text}
-        else:
-            yield payload
+            yield {'summary': summary_text}
+            return
+        yield payload
 
 
 __all__ = [
