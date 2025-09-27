@@ -22,7 +22,7 @@ function isEventSourceSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.EventSource !== 'undefined';
 }
 
-function parseEventData(raw: string): TranscriptChunk | null {
+function parseTranscriptData(raw: string): TranscriptChunk | null {
   if (!raw) {
     return null;
   }
@@ -52,6 +52,47 @@ function parseEventData(raw: string): TranscriptChunk | null {
   }
 }
 
+function parseSummaryData(raw: string): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const summaryCandidate =
+      typeof parsed.summary === 'string'
+        ? parsed.summary
+        : typeof parsed.text === 'string'
+          ? parsed.text
+          : '';
+    const summary = summaryCandidate.trim();
+    return summary ? summary : null;
+  } catch {
+    const summary = raw.trim();
+    if (!summary || summary === '[DONE]') {
+      return null;
+    }
+    return summary;
+  }
+}
+
+function extractEventData(event: unknown): string {
+  if (typeof event === 'string') {
+    return event;
+  }
+
+  if (
+    typeof event === 'object' &&
+    event !== null &&
+    'data' in event &&
+    typeof (event as { data?: unknown }).data === 'string'
+  ) {
+    return (event as { data: string }).data;
+  }
+
+  return '';
+}
+
 function resolveDefaultFactory(): EventSourceFactory | null {
   if (!isEventSourceSupported()) {
     return null;
@@ -68,7 +109,8 @@ export default function TranscriptStream({
   const [connectionState, setConnectionState] = React.useState<ConnectionState>(() =>
     isEventSourceSupported() ? 'connecting' : 'unsupported'
   );
-  const [chunks, setChunks] = React.useState<TranscriptChunk[]>([]);
+  const [transcriptChunks, setTranscriptChunks] = React.useState<TranscriptChunk[]>([]);
+  const [summary, setSummary] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const factory = eventSourceFactory ?? resolveDefaultFactory();
@@ -80,7 +122,8 @@ export default function TranscriptStream({
     const source = factory(`/api/meeting/stream/${meetingId}`);
     let isActive = true;
 
-    setChunks([]);
+    setTranscriptChunks([]);
+    setSummary(null);
     setConnectionState('connecting');
 
     const handleOpen = () => {
@@ -90,17 +133,30 @@ export default function TranscriptStream({
       setConnectionState('open');
     };
 
-    const handleMessage = (data: string) => {
+    const handleTranscriptEvent = (event: unknown) => {
       if (!isActive) {
         return;
       }
 
-      const chunk = parseEventData(data);
+      const chunk = parseTranscriptData(extractEventData(event));
       if (!chunk) {
         return;
       }
 
-      setChunks((previous) => [...previous, chunk]);
+      setTranscriptChunks((previous) => [...previous, chunk]);
+    };
+
+    const handleSummaryEvent = (event: unknown) => {
+      if (!isActive) {
+        return;
+      }
+
+      const parsedSummary = parseSummaryData(extractEventData(event));
+      if (!parsedSummary) {
+        return;
+      }
+
+      setSummary(parsedSummary);
     };
 
     const handleError = () => {
@@ -113,22 +169,21 @@ export default function TranscriptStream({
     };
 
     source.onopen = handleOpen;
-    source.onmessage = (event) => {
-      if (!isActive) {
-        return;
-      }
-      const data =
-        typeof event === 'string'
-          ? event
-          : (event as { data?: string }).data ?? '';
-      handleMessage(data);
+    const transcriptListener = (event: unknown) => {
+      handleTranscriptEvent(event);
     };
+    const summaryListener = (event: unknown) => {
+      handleSummaryEvent(event);
+    };
+    source.addEventListener('transcript', transcriptListener as any);
+    source.addEventListener('summary', summaryListener as any);
     source.onerror = handleError;
 
     return () => {
       isActive = false;
       source.onopen = null;
-      source.onmessage = null;
+      source.removeEventListener('transcript', transcriptListener as any);
+      source.removeEventListener('summary', summaryListener as any);
       source.onerror = null;
       source.close();
     };
@@ -158,11 +213,13 @@ export default function TranscriptStream({
       </div>
       {connectionState === 'unsupported' ? (
         <p className={styles.placeholder}>{statusLabel}</p>
-      ) : chunks.length === 0 ? (
-        <p className={styles.placeholder}>{t('transcriptStream.empty')}</p>
+      ) : transcriptChunks.length === 0 ? (
+        summary ? null : (
+          <p className={styles.placeholder}>{t('transcriptStream.empty')}</p>
+        )
       ) : (
         <ol className={styles.list}>
-          {chunks.map((chunk, index) => {
+          {transcriptChunks.map((chunk, index) => {
             const key = chunk.id ?? `${index}-${chunk.text}`;
             return (
               <li key={key} className={styles.item}>
@@ -180,6 +237,12 @@ export default function TranscriptStream({
           })}
         </ol>
       )}
+      {summary ? (
+        <div className={styles.summarySection}>
+          <h3 className={styles.summaryTitle}>{t('transcriptStream.summary.title')}</h3>
+          <p className={styles.summaryText}>{summary}</p>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -57,3 +57,20 @@
   font-size: 0.95rem;
   color: #4b5563;
 }
+
+.summarySection {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.summaryTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.summaryText {
+  margin: 0;
+  line-height: 1.6;
+  color: #1f2933;
+}
