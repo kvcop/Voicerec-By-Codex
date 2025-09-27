@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from fastapi.testclient import TestClient
 
 from app.api import meeting
 from app.main import app
-from app.services.transcript import get_transcript_service
+from app.services.transcript import TranscriptService, get_transcript_service
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from collections.abc import AsyncGenerator
@@ -181,6 +181,9 @@ def test_stream() -> None:
         def __init__(self) -> None:
             self.calls: list[str] = []
 
+        def ensure_audio_available(self, meeting_id: str) -> None:
+            del meeting_id
+
         async def stream_transcript(
             self, meeting_id: str
         ) -> AsyncGenerator[dict[str, int | str], None]:
@@ -206,3 +209,28 @@ def test_stream() -> None:
         'data: {}',
     ]
     assert fake_service.calls == ['xyz']
+
+
+def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
+    """Missing meeting audio results in 404 without invoking transcript client."""
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[Path] = []
+
+        async def run(self, source: Path) -> dict[str, Any]:
+            self.calls.append(source)
+            return {'segments': [{'text': 'should not be used'}]}
+
+    fake_client = _FakeClient()
+    service = TranscriptService(fake_client, raw_audio_dir=tmp_path)
+    app.dependency_overrides[get_transcript_service] = lambda: service
+
+    try:
+        response = client.get('/stream/missing')
+    finally:
+        app.dependency_overrides.pop(get_transcript_service, None)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json() == {'detail': 'Meeting missing not found'}
+    assert fake_client.calls == []
