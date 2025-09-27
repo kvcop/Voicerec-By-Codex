@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
+DEFAULT_DATABASE_SCHEMA_VERSION = '0.1.0'
 
 
 class GPUSettings(BaseSettings):
@@ -57,6 +58,11 @@ class Settings(BaseSettings):
     database_url: str = Field(
         alias='DATABASE_URL',
         description='Database connection string',
+    )
+    database_schema_version: str = Field(
+        default=DEFAULT_DATABASE_SCHEMA_VERSION,
+        alias='DATABASE_SCHEMA_VERSION',
+        description='Expected Alembic schema version for runtime validation',
     )
     raw_audio_dir: Path = Field(
         default=DEFAULT_RAW_AUDIO_DIR,
