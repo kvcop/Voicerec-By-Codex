@@ -35,6 +35,15 @@ class MeetingNotFoundError(Exception):
         self.meeting_id = meeting_id
 
 
+class MeetingNotFoundError(Exception):
+    """Raised when requested meeting audio file is missing."""
+
+    def __init__(self, meeting_id: str) -> None:
+        message = f'Meeting {meeting_id} not found'
+        super().__init__(message)
+        self.meeting_id = meeting_id
+
+
 class TranscriptService:
     """Stream transcript fragments for SSE consumption."""
 
@@ -63,11 +72,18 @@ class TranscriptService:
             Dictionaries describing SSE events.
         """
         audio_path = self._resolve_audio_path(meeting_id)
+<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
         result = await self._meeting_processor.process(audio_path)
 
         for item in self._yield_transcript_events(result):
             yield item
         yield self._build_summary_item(result)
+=======
+        payload = await self._client.run(audio_path)
+
+        for index, chunk in enumerate(self._extract_chunks(payload), start=1):
+            yield {'index': index, 'text': chunk}
+>>>>>> main
 
     def ensure_audio_available(self, meeting_id: str) -> None:
         """Validate that raw audio exists for the provided meeting identifier."""
@@ -80,6 +96,7 @@ class TranscriptService:
             raise MeetingNotFoundError(meeting_id)
         return audio_path
 
+<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
     def _yield_transcript_events(self, result: MeetingProcessingResult) -> Iterable[StreamItem]:
         """Return transcript events for the SSE stream."""
         for event in result.events:
@@ -88,6 +105,36 @@ class TranscriptService:
     def _build_summary_item(self, result: MeetingProcessingResult) -> StreamItem:
         """Return final summary SSE payload."""
         return {'event': 'summary', 'data': {'summary': result.summary}}
+=======
+    def _extract_chunks(self, payload: dict[str, Any]) -> Iterable[str]:
+        """Extract text chunks from transcription payload."""
+        segments = payload.get('segments')
+        if isinstance(segments, list):
+            for segment in segments:
+                if not isinstance(segment, dict):
+                    continue
+                text = segment.get('text')
+                if isinstance(text, str):
+                    cleaned = text.strip()
+                    if cleaned:
+                        yield cleaned
+            return
+
+        text = payload.get('text')
+        if isinstance(text, str):
+            cleaned = text.strip()
+            if cleaned:
+                yield from self._chunk_text(cleaned)
+
+    def _chunk_text(self, text: str) -> Iterable[str]:
+        """Split raw text into word-based chunks."""
+        words = text.split()
+        if not words:
+            return
+
+        for start in range(0, len(words), self._words_per_chunk):
+            yield ' '.join(words[start : start + self._words_per_chunk])
+>>>>>> main
 
 
 def _resolve_fixture_path() -> Path:
