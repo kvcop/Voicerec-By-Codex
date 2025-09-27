@@ -95,7 +95,6 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         )
     finally:
         app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
-
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'

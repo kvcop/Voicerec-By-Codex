@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+import pathlib
 from http import HTTPStatus
-from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
@@ -33,16 +33,16 @@ ALLOWED_WAV_MIME_TYPES = {
 }
 
 
-def get_raw_audio_dir() -> Path:
+def get_raw_audio_dir() -> pathlib.Path:
     """Return configured directory for storing raw audio files."""
     directory = resolve_raw_audio_dir()
-    return Path(directory)
+    return pathlib.Path(directory)
 
 
 @router.post('/upload')
 async def upload_audio(
     file: Annotated[UploadFile, File(...)],
-    raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
+    raw_audio_dir: Annotated[pathlib.Path, Depends(get_raw_audio_dir)],
 ) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     content_type = (file.content_type or '').lower()
@@ -59,7 +59,7 @@ async def upload_audio(
     return {'meeting_id': meeting_id}
 
 
-async def _store_upload(file: UploadFile, destination: Path) -> None:
+async def _store_upload(file: UploadFile, destination: pathlib.Path) -> None:
     """Persist uploaded file to the destination path chunk by chunk."""
     try:
         async with aiofiles.open(destination, 'wb') as buffer:
