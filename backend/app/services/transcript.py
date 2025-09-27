@@ -24,6 +24,15 @@ class TranscriptClientProtocol(Protocol):
         """Return transcript payload for the provided audio source."""
 
 
+class MeetingNotFoundError(Exception):
+    """Raised when requested meeting audio file is missing."""
+
+    def __init__(self, meeting_id: str) -> None:
+        message = f'Meeting {meeting_id} not found'
+        super().__init__(message)
+        self.meeting_id = meeting_id
+
+
 class TranscriptService:
     """Stream transcript fragments for SSE consumption."""
 
@@ -65,11 +74,22 @@ class TranscriptService:
         Yields:
             Dictionaries with chunk metadata and text content.
         """
-        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        audio_path = self._resolve_audio_path(meeting_id)
         payload = await self._client.run(self._read_audio_bytes(audio_path))
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}
+
+    def ensure_audio_available(self, meeting_id: str) -> None:
+        """Validate that raw audio exists for the provided meeting identifier."""
+        self._resolve_audio_path(meeting_id)
+
+    def _resolve_audio_path(self, meeting_id: str) -> Path:
+        """Return audio file path and ensure it exists."""
+        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        if not audio_path.is_file():
+            raise MeetingNotFoundError(meeting_id)
+        return audio_path
 
     def _extract_chunks(self, payload: dict[str, Any]) -> Iterable[str]:
         """Extract text chunks from transcription payload."""
