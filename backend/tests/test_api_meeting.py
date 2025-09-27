@@ -18,7 +18,7 @@ from app.services.transcript import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
-    from collections.abc import AsyncGenerator, Iterable
+    from collections.abc import AsyncGenerator
     from types import TracebackType
 
     import pytest
@@ -249,21 +249,12 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
 
     class _StubProcessor:
         def __init__(self) -> None:
-            self.calls: list[str] = []
-            self.iterated = False
+            self.calls: list[Path] = []
 
-<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
-        async def run(self, source: Iterable[bytes]) -> dict[str, Any]:
-            self.calls.append('called')
-            for _ in source:
-                self.iterated = True
-            return {'segments': [{'text': 'should not be used'}]}
-=======
         async def process(self, audio_path: Path) -> NoReturn:
             self.calls.append(audio_path)
             message = 'process should not be called for missing meetings'
             raise AssertionError(message)
->>>>>> main
 
     processor = _StubProcessor()
     service = TranscriptService(cast('MeetingProcessingService', processor), raw_audio_dir=tmp_path)
@@ -276,9 +267,4 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Meeting missing not found'}
-<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
-    assert fake_client.calls == []
-    assert fake_client.iterated is False
-=======
     assert processor.calls == []
->>>>>> main
