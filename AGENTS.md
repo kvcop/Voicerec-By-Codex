@@ -34,6 +34,13 @@ After every code change, check whether the documentation requires updates and ke
 ## Questions and Answers
 `QUESTIONS.md` always exists. Read it before starting work. If the owner answered any previous questions, incorporate the information, mark them as resolved, and add new questions if needed. For the completed work you should remove paragraphs or whole questions with their answers in the `QUESTIONS.md`.
 
+### Maintaining `QUESTIONS.md`
+
+- Whenever you remove an answered question, verify that the underlying task is fully implemented. If it is not, keep the question.
+- If the answer contains knowledge useful for future work, move it into `docs/` (for example, the research summary in `docs/ai-context/speech_stack_research.md`).
+- Document every relocated answer by referencing the new documentation in both `README.md` and this `AGENTS.md` file so the context remains discoverable.
+- Leave in `QUESTIONS.md` only the items that still require input from the owner.
+
 `LATEST_RESEARCH.md` should exist. It contains latest information about the project with the date specified and version. You should use it whenever possible.
 
 The `pyproject.toml` sections for `ruff` and `mypy` must not be edited without explicit user instruction.

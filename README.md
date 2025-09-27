@@ -6,7 +6,7 @@ This repository hosts a monorepo for a local meeting transcription service. It c
 ## Structure
 - `backend/` – FastAPI application and tests
 - `frontend/` – React application using Vite
-- `docs/` – documentation and mermaid diagrams in `.md` files
+- `docs/` – documentation and mermaid diagrams in `.md` files (см. `docs/ai-context/speech_stack_research.md` для результатов исследования стеков моделей)
 - `install_deps.sh` – install Python and Node dependencies using `uv` and `npm`
 - `AGENTS.md` – instructions for Codex agents
 - `QUESTIONS.md` – ongoing Q&A with the repository owner
@@ -35,7 +35,7 @@ Continuous integration environments can reuse the stripped-down definition:
 docker compose -f infra/docker-compose.ci.yml up -d postgres
 ```
 
-Both configurations expose the `voicerec` database and ship with health checks based on `pg_isready`.
+Both configurations expose the `voicerec` database and ship with health checks based on `pg_isready`. Альтернативно можно запустить `bash install_postgres.sh`, чтобы установить локальный PostgreSQL вручную (используется пароль `password`).
 
 ## Next Steps
 1. Flesh out endpoints for uploading audio and returning transcripts.

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
+    MeetingNotFoundError,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
@@ -21,7 +22,7 @@ from app.services.transcript import (
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
 
-router = APIRouter()
+router = APIRouter(prefix='/api/meeting')
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -32,16 +33,16 @@ ALLOWED_WAV_MIME_TYPES = {
 }
 
 
-def get_raw_audio_dir() -> pathlib.Path:
+def get_raw_audio_dir() -> Path:
     """Return configured directory for storing raw audio files."""
     directory = resolve_raw_audio_dir()
-    return pathlib.Path(directory)
+    return Path(directory)
 
 
 @router.post('/upload')
 async def upload_audio(
     file: Annotated[UploadFile, File(...)],
-    raw_audio_dir: Annotated[pathlib.Path, Depends(get_raw_audio_dir)],
+    raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
 ) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     content_type = (file.content_type or '').lower()
@@ -58,7 +59,7 @@ async def upload_audio(
     return {'meeting_id': meeting_id}
 
 
-async def _store_upload(file: UploadFile, destination: pathlib.Path) -> None:
+async def _store_upload(file: UploadFile, destination: Path) -> None:
     """Persist uploaded file to the destination path chunk by chunk."""
     try:
         async with aiofiles.open(destination, 'wb') as buffer:
@@ -85,12 +86,19 @@ async def _event_generator(
     yield 'event: end\ndata: {}\n\n'
 
 
-@router.get('/stream/{meeting_id}')
+@router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    try:
+        service.ensure_audio_available(meeting_id)
+    except MeetingNotFoundError as exc:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     return StreamingResponse(
         _event_generator(meeting_id, service),
         media_type='text/event-stream',
