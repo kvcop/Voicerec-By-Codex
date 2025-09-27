@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict, cast
 
 if TYPE_CHECKING:  # pragma: no cover - imports for typing only
-    from collections.abc import AsyncGenerator, Iterable, Mapping
+    from collections.abc import AsyncIterable, AsyncIterator, Iterable, Mapping
 
     from sqlalchemy.ext.asyncio import AsyncSession
 else:  # pragma: no cover - define runtime reference for dependency evaluation
@@ -81,21 +81,25 @@ class TranscriptService:
         self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
         self._enforce_audio_presence = enforce_audio_presence
 
-    async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[StreamItem, None]:
-        """Yield meeting events and final summary for the provided meeting.
+    def stream_transcript(self, meeting_id: str) -> AsyncIterable[StreamItem]:
+        """Return async iterable that yields transcript fragments and the summary.
 
         Args:
             meeting_id: Identifier of the meeting whose transcript should be streamed.
 
-        Yields:
-            Stream items describing SSE events.
+        Returns:
+            Asynchronous iterable producing transcript and summary stream items.
         """
-        audio_path = self._resolve_audio_path(meeting_id)
-        result = await self._meeting_processor.process(audio_path)
 
-        for item in self._yield_transcript_events(result):
-            yield item
-        yield self._build_summary_item(result)
+        async def iterator() -> AsyncIterator[StreamItem]:
+            audio_path = self._resolve_audio_path(meeting_id)
+            result = await self._meeting_processor.process(audio_path)
+
+            for item in self._yield_transcript_events(result):
+                yield item
+            yield self._build_summary_item(result)
+
+        return iterator()
 
     def ensure_audio_available(self, meeting_id: str) -> None:
         """Validate that raw audio exists for the provided meeting identifier."""

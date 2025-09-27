@@ -1,5 +1,6 @@
 """Tests for meeting API endpoints."""
 
+import asyncio
 from collections.abc import AsyncGenerator
 from http import HTTPStatus
 from pathlib import Path
@@ -271,3 +272,76 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Meeting missing not found'}
     assert processor.calls == []
+
+
+def test_stream_emits_heartbeat_before_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SSE stream sends heartbeat comments while awaiting payloads."""
+
+    class _DelayedService:
+        def __init__(self) -> None:
+            self.checked: list[str] = []
+
+        def ensure_audio_available(self, meeting_id: str) -> None:
+            self.checked.append(meeting_id)
+
+        def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
+            assert meeting_id == 'meeting-id'
+
+            async def generator() -> AsyncGenerator[dict[str, object], None]:
+                await asyncio.sleep(0.03)
+                yield {'event': 'summary', 'data': {'summary': 'Done'}}
+
+            return generator()
+
+    service = _DelayedService()
+    app.dependency_overrides[get_transcript_service] = lambda: service
+    monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
+    monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.2)
+
+    lines: list[str] = []
+    try:
+        with client.stream('GET', '/api/meeting/meeting-id/stream') as response:
+            assert response.status_code == HTTPStatus.OK
+            lines = [line for line in response.iter_lines() if line]
+    finally:
+        app.dependency_overrides.pop(get_transcript_service, None)
+
+    assert ': heartbeat' in lines
+    assert lines[-2:] == [
+        'event: summary',
+        'data: {"summary": "Done"}',
+    ]
+    assert service.checked == ['meeting-id']
+
+
+def test_stream_stops_after_idle_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stream closes when payloads are not produced within idle timeout."""
+
+    class _HangingService:
+        def ensure_audio_available(self, meeting_id: str) -> None:
+            del meeting_id
+
+        def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
+            assert meeting_id == 'meeting-id'
+
+            async def generator() -> AsyncGenerator[dict[str, object], None]:
+                await asyncio.sleep(1)
+                yield {'event': 'summary', 'data': {'summary': 'Late'}}
+
+            return generator()
+
+    service = _HangingService()
+    app.dependency_overrides[get_transcript_service] = lambda: service
+    monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
+    monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.05)
+
+    lines: list[str] = []
+    try:
+        with client.stream('GET', '/api/meeting/meeting-id/stream') as response:
+            assert response.status_code == HTTPStatus.OK
+            lines = [line for line in response.iter_lines() if line]
+    finally:
+        app.dependency_overrides.pop(get_transcript_service, None)
+
+    assert lines
+    assert all(line == ': heartbeat' for line in lines)

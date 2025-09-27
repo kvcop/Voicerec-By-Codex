@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 from uuid import uuid4
 
 import aiofiles
@@ -99,11 +101,49 @@ async def _iter_upload_file(file: UploadFile, chunk_size: int = CHUNK_SIZE) -> A
 
 
 async def _event_generator(
-    meeting_id: str, service: TranscriptService
+    meeting_id: str,
+    service: TranscriptService,
+    *,
+    heartbeat_interval: float | None = None,
+    stream_timeout: float | None = None,
 ) -> AsyncGenerator[str, None]:
-    async for item in service.stream_transcript(meeting_id):
-        payload = _serialize_stream_item(item)
-        yield payload
+    interval = HEARTBEAT_INTERVAL_SECONDS if heartbeat_interval is None else heartbeat_interval
+    timeout = STREAM_IDLE_TIMEOUT_SECONDS if stream_timeout is None else stream_timeout
+
+    stream = service.stream_transcript(meeting_id)
+    iterator = stream.__aiter__()
+    loop = asyncio.get_running_loop()
+    last_event_time = loop.time()
+    pending: asyncio.Task[StreamItem] | None = None
+
+    try:
+        while True:
+            if pending is None:
+                pending = asyncio.create_task(_anext(iterator))
+
+            done, _ = await asyncio.wait({pending}, timeout=interval)
+            if not done:
+                now = loop.time()
+                if timeout is not None and now - last_event_time >= timeout:
+                    break
+                yield HEARTBEAT_COMMENT
+                continue
+
+            task = done.pop()
+            pending = None
+            try:
+                item = task.result()
+            except StopAsyncIteration:
+                break
+
+            last_event_time = loop.time()
+            yield _serialize_stream_item(cast('StreamItem', item))
+    finally:
+        if pending is not None and not pending.done():
+            pending.cancel()
+            with contextlib.suppress(Exception):
+                await pending
+        await _close_async_iterator(iterator)
 
 
 @router.get('/{meeting_id}/stream')
@@ -145,4 +185,25 @@ def _serialize_stream_item(item: StreamItem) -> str:
     return f'event: {item["event"]}\ndata: {data}\n\n'
 
 
+async def _close_async_iterator(iterator: AsyncIterator[StreamItem]) -> None:
+    """Close asynchronous iterator if it exposes an ``aclose`` coroutine."""
+    aclose = getattr(iterator, 'aclose', None)
+    if aclose is None:
+        return
+
+    try:
+        await aclose()
+    except (RuntimeError, StopAsyncIteration):
+        # Iterator may already be closed or exhausted; ignore such errors.
+        return
+
+
+async def _anext(iterator: AsyncIterator[StreamItem]) -> StreamItem:
+    """Return next item from asynchronous iterator."""
+    return await iterator.__anext__()
+
+
 __all__ = ['legacy_router', 'router']
+HEARTBEAT_COMMENT = ': heartbeat\n\n'
+HEARTBEAT_INTERVAL_SECONDS = 15.0
+STREAM_IDLE_TIMEOUT_SECONDS = 60.0
