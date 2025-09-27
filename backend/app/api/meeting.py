@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from http import HTTPStatus
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
@@ -13,17 +13,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
-<<<<<< codex/2025-09-27-check-and-complete-task-a3
     MeetingNotFoundError,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
-=======
-    RAW_AUDIO_DIR,
-    MeetingNotFoundError,
-    TranscriptService,
-    get_transcript_service,
->>>>>> main
 )
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
@@ -40,16 +33,16 @@ ALLOWED_WAV_MIME_TYPES = {
 }
 
 
-def get_raw_audio_dir() -> pathlib.Path:
+def get_raw_audio_dir() -> Path:
     """Return configured directory for storing raw audio files."""
     directory = resolve_raw_audio_dir()
-    return pathlib.Path(directory)
+    return Path(directory)
 
 
 @router.post('/upload')
 async def upload_audio(
     file: Annotated[UploadFile, File(...)],
-    raw_audio_dir: Annotated[pathlib.Path, Depends(get_raw_audio_dir)],
+    raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
 ) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     content_type = (file.content_type or '').lower()
@@ -66,7 +59,7 @@ async def upload_audio(
     return {'meeting_id': meeting_id}
 
 
-async def _store_upload(file: UploadFile, destination: pathlib.Path) -> None:
+async def _store_upload(file: UploadFile, destination: Path) -> None:
     """Persist uploaded file to the destination path chunk by chunk."""
     try:
         async with aiofiles.open(destination, 'wb') as buffer:
