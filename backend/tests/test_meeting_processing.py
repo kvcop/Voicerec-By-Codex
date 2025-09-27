@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 import pytest
 
@@ -16,10 +19,14 @@ class _StaticClient:
 
     def __init__(self, payload: object) -> None:
         self.payload = payload
-        self.calls: list[Path | str] = []
+        self.streams: list[bytes] = []
+        self.calls: list[str] = []
 
-    async def run(self, argument: Path | str) -> dict[str, object]:
-        self.calls.append(argument)
+    async def run(self, argument: Iterable[bytes] | str) -> dict[str, object]:
+        if isinstance(argument, str):
+            self.calls.append(argument)
+        else:
+            self.streams.append(b''.join(argument))
         return cast('dict[str, object]', json.loads(json.dumps(self.payload)))
 
 
@@ -58,10 +65,11 @@ async def test_meeting_processing_merges_segments(
     service = MeetingProcessingService(transcribe_client, diarize_client, summarize_client)
 
     audio_path = tmp_path / 'audio.wav'
+    audio_path.write_bytes(b'hello world')
     result = await service.process(audio_path)
 
-    assert list(transcribe_client.calls) == [audio_path]
-    assert list(diarize_client.calls) == [audio_path]
+    assert transcribe_client.streams == [b'hello world']
+    assert diarize_client.streams == [b'hello world']
     assert summarize_client.calls == ['Hello World']
 
     assert result.summary == 'This is a summary.'

@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
-if TYPE_CHECKING:  # pragma: no cover - imported for typing only
+if TYPE_CHECKING:  # pragma: no cover - imports for typing only
     from collections.abc import AsyncGenerator, Iterable, Mapping
 
-from app.core.settings import get_settings
+from app.core.settings import GPUSettings, get_settings
 from app.grpc_client import create_grpc_client
 from app.services.meeting_processing import (
     DiarizeClientProtocol,
@@ -41,6 +41,13 @@ class MeetingNotFoundError(Exception):
         self.meeting_id = meeting_id
 
 
+class StreamItem(TypedDict):
+    """Structured representation of SSE events emitted by the service."""
+
+    event: Literal['transcript', 'summary']
+    data: Mapping[str, Any]
+
+
 class TranscriptService:
     """Stream transcript fragments for SSE consumption."""
 
@@ -49,15 +56,18 @@ class TranscriptService:
         meeting_processor: MeetingProcessingService,
         *,
         raw_audio_dir: Path | None = None,
+        enforce_audio_presence: bool = True,
     ) -> None:
         """Initialize the service.
 
         Args:
             meeting_processor: Service responsible for aggregating meeting data.
             raw_audio_dir: Directory where meeting audio files are stored.
+            enforce_audio_presence: Whether to ensure audio exists before processing.
         """
         self._meeting_processor = meeting_processor
         self._raw_audio_dir = raw_audio_dir or resolve_raw_audio_dir()
+        self._enforce_audio_presence = enforce_audio_presence
 
     async def stream_transcript(self, meeting_id: str) -> AsyncGenerator[StreamItem, None]:
         """Yield meeting events and final summary for the provided meeting.
@@ -66,7 +76,7 @@ class TranscriptService:
             meeting_id: Identifier of the meeting whose transcript should be streamed.
 
         Yields:
-            Dictionaries describing SSE events.
+            Stream items describing SSE events.
         """
         audio_path = self._resolve_audio_path(meeting_id)
         result = await self._meeting_processor.process(audio_path)
@@ -79,14 +89,10 @@ class TranscriptService:
         """Validate that raw audio exists for the provided meeting identifier."""
         self._resolve_audio_path(meeting_id)
 
-    def audio_exists(self, meeting_id: str) -> bool:
-        """Return whether audio for the provided meeting id is available."""
-        return (self._raw_audio_dir / f'{meeting_id}.wav').is_file()
-
     def _resolve_audio_path(self, meeting_id: str) -> Path:
-        """Return audio file path and ensure it exists."""
+        """Return audio file path and ensure it exists when enforcement is enabled."""
         audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
-        if not audio_path.is_file():
+        if self._enforce_audio_presence and not audio_path.is_file():
             raise MeetingNotFoundError(meeting_id)
         return audio_path
 
@@ -100,7 +106,7 @@ class TranscriptService:
         return {'event': 'summary', 'data': {'summary': result.summary}}
 
 
-def _resolve_fixture_path() -> Path:
+def resolve_transcribe_fixture_path() -> Path:
     """Determine transcript fixture path for the mock gRPC client."""
     env_path = os.getenv('TRANSCRIBE_FIXTURE_PATH')
     if env_path:
@@ -124,26 +130,51 @@ def _resolve_summarize_fixture_path() -> Path:
     return DEFAULT_SUMMARIZE_FIXTURE
 
 
-def get_transcript_service() -> TranscriptService:
-    """Return transcript service instance configured with mock gRPC client."""
-    transcribe_fixture = _resolve_fixture_path()
-    diarize_fixture = _resolve_diarize_fixture_path()
-    summarize_fixture = _resolve_summarize_fixture_path()
+def get_transcript_service(
+    client_type: str | None = None,
+    gpu_settings: GPUSettings | None = None,
+) -> TranscriptService:
+    """Return transcript service instance configured with selected gRPC client."""
+    resolved_type = client_type or os.getenv('GRPC_CLIENT_TYPE', 'mock')
+    if resolved_type == 'grpc' and gpu_settings is None:
+        gpu_settings = GPUSettings()
 
-    transcribe_client = create_grpc_client('transcribe', transcribe_fixture)
-    diarize_client = create_grpc_client('diarize', diarize_fixture)
-    summarize_client = create_grpc_client('summarize', summarize_fixture)
+    transcribe_client = create_grpc_client(
+        'transcribe',
+        resolve_transcribe_fixture_path(),
+        client_type=client_type,
+        gpu_settings=gpu_settings,
+    )
+    diarize_client = create_grpc_client(
+        'diarize',
+        _resolve_diarize_fixture_path(),
+        client_type=client_type,
+        gpu_settings=gpu_settings,
+    )
+    summarize_client = create_grpc_client(
+        'summarize',
+        _resolve_summarize_fixture_path(),
+        client_type=client_type,
+        gpu_settings=gpu_settings,
+    )
 
     processor = MeetingProcessingService(
         cast('TranscribeClientProtocol', transcribe_client),
         cast('DiarizeClientProtocol', diarize_client),
         cast('SummarizeClientProtocol', summarize_client),
     )
-    return TranscriptService(processor)
+    enforce_audio_presence = resolved_type != 'mock'
+    return TranscriptService(
+        processor,
+        enforce_audio_presence=enforce_audio_presence,
+    )
 
 
-class StreamItem(TypedDict):
-    """Structured representation of SSE events emitted by the service."""
-
-    event: Literal['transcript', 'summary']
-    data: Mapping[str, Any]
+__all__ = [
+    'MeetingNotFoundError',
+    'StreamItem',
+    'TranscriptService',
+    'get_transcript_service',
+    'resolve_raw_audio_dir',
+    'resolve_transcribe_fixture_path',
+]

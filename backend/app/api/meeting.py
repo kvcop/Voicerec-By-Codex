@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
 import aiofiles
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
@@ -39,6 +39,20 @@ def get_raw_audio_dir() -> Path:
     """Return configured directory for storing raw audio files."""
     directory = resolve_raw_audio_dir()
     return Path(directory)
+
+
+# Allow overriding gRPC client implementation via query parameter.
+ClientTypeParam = Annotated[str | None, Query(alias='client_type')]
+
+
+def _transcript_service_dependency(
+    base_service: Annotated[TranscriptService, Depends(get_transcript_service)],
+    client_type: ClientTypeParam = None,
+) -> TranscriptService:
+    """Resolve transcript service with optional client type override."""
+    if client_type is not None:
+        return get_transcript_service(client_type=client_type)
+    return base_service
 
 
 @router.post('/upload')
@@ -91,7 +105,7 @@ async def _event_generator(
 @router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
-    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+    service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
     return _streaming_response(meeting_id, service)
@@ -125,3 +139,6 @@ def _serialize_stream_item(item: StreamItem) -> str:
     """Format a service stream item to SSE-compatible payload."""
     data = json.dumps(item['data'], ensure_ascii=False)
     return f'event: {item["event"]}\ndata: {data}\n\n'
+
+
+__all__ = ['legacy_router', 'router']
