@@ -77,7 +77,7 @@ export default function TranscriptStream({
       return undefined;
     }
 
-    const source = factory(`/api/meeting/stream/${meetingId}`);
+    const source = factory(`/api/meeting/${meetingId}/stream`);
     let isActive = true;
 
     setChunks([]);
