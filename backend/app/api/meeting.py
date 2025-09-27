@@ -23,6 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
 
 router = APIRouter(prefix='/api/meeting')
+legacy_router = APIRouter()
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -92,6 +93,20 @@ async def stream_transcript(
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    return _streaming_response(meeting_id, service)
+
+
+@legacy_router.get('/stream/{meeting_id}', include_in_schema=False)
+async def stream_transcript_legacy(
+    meeting_id: str,
+    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+) -> StreamingResponse:
+    """Legacy path kept for backward compatibility with early clients."""
+    return _streaming_response(meeting_id, service)
+
+
+def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
+    """Return streaming response after verifying audio availability."""
     try:
         service.ensure_audio_available(meeting_id)
     except MeetingNotFoundError as exc:
