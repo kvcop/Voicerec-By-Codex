@@ -262,13 +262,15 @@ class MeetingProcessingService:
         diar_end: float | None,
     ) -> bool:
         """Return ``True`` when the provided intervals overlap."""
-        if start is None or end is None or diar_start is None or diar_end is None:
+        norm_start = float('-inf') if start is None else start
+        norm_end = float('inf') if end is None else end
+        norm_diar_start = float('-inf') if diar_start is None else diar_start
+        norm_diar_end = float('inf') if diar_end is None else diar_end
+
+        if norm_start >= norm_diar_end:
             return False
 
-        if start >= diar_end:
-            return False
-
-        return not end <= diar_start
+        return norm_end > norm_diar_start
 
     @staticmethod
     def _as_float(value: float | str | None) -> float | None:
