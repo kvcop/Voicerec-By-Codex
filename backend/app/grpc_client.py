@@ -15,7 +15,6 @@ from app.core.settings import GPUSettings  # noqa: TC001
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
     from collections.abc import AsyncIterator, Iterable
-    from pathlib import Path
 
     from grpc import aio as grpc_aio
 
