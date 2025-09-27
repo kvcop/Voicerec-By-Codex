@@ -23,7 +23,10 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from pathlib import Path
 
 router = APIRouter(prefix='/api/meeting')
+<<<<<< codex/2025-09-27-check-and-complete-task-b2
 legacy_router = APIRouter()
+=======
+>>>>>> main
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -81,6 +84,7 @@ async def _event_generator(
     yield 'event: end\ndata: {}\n\n'
 
 
+<<<<<< codex/2025-09-27-check-and-complete-task-b2
 def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
     """Return streaming response after verifying audio availability."""
     try:
@@ -96,12 +100,15 @@ def _streaming_response(meeting_id: str, service: TranscriptService) -> Streamin
     )
 
 
+=======
+>>>>>> main
 @router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+<<<<<< codex/2025-09-27-check-and-complete-task-b2
     return _streaming_response(meeting_id, service)
 
 
@@ -112,3 +119,16 @@ async def stream_transcript_legacy(
 ) -> StreamingResponse:
     """Legacy path kept for backward compatibility with early clients."""
     return _streaming_response(meeting_id, service)
+=======
+    try:
+        service.ensure_audio_available(meeting_id)
+    except MeetingNotFoundError as exc:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    return StreamingResponse(
+        _event_generator(meeting_id, service),
+        media_type='text/event-stream',
+    )
+>>>>>> main
