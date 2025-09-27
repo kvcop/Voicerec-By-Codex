@@ -1,15 +1,16 @@
 import React from 'react';
+import { IntlProvider, useIntl } from 'react-intl';
 import en from '../locales/en.json';
 import ru from '../locales/ru.json';
 
 export const messages = { en, ru } as const;
 export type Locale = keyof typeof messages;
 type AppMessages = (typeof messages)[Locale];
-type LocaleChangeHandler = React.Dispatch<Locale>;
+type MessageKey = keyof AppMessages & string;
+type LocaleChangeHandler = React.Dispatch<React.SetStateAction<Locale>>;
 
 interface TranslationContextValue {
   locale: Locale;
-  messages: AppMessages;
   setLocale: LocaleChangeHandler;
 }
 
@@ -31,7 +32,6 @@ export function TranslationProvider({
   const contextValue = React.useMemo(
     () => ({
       locale,
-      messages: messages[locale],
       setLocale: onLocaleChange,
     }),
     [locale, onLocaleChange],
@@ -39,7 +39,9 @@ export function TranslationProvider({
 
   return (
     <TranslationContext.Provider value={contextValue}>
-      {children}
+      <IntlProvider locale={locale} messages={messages[locale]} defaultLocale="en">
+        {children}
+      </IntlProvider>
     </TranslationContext.Provider>
   );
 }
@@ -54,13 +56,12 @@ export function useLocale() {
 }
 
 export function useTranslations() {
-  const context = React.useContext(TranslationContext);
-  if (!context) {
-    throw new Error('useTranslations must be used within a TranslationProvider');
-  }
-
-  return <Key extends keyof AppMessages>(key: Key): AppMessages[Key] =>
-    context.messages[key];
+  const intl = useIntl();
+  return React.useCallback(
+    <Key extends MessageKey>(key: Key): AppMessages[Key] =>
+      intl.formatMessage({ id: key }) as AppMessages[Key],
+    [intl],
+  );
 }
 
 export function isSupportedLocale(locale: string | null): locale is Locale {

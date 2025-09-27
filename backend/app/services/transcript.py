@@ -26,6 +26,15 @@ DEFAULT_DIARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'diariz
 DEFAULT_SUMMARIZE_FIXTURE = REPO_ROOT / 'backend' / 'tests' / 'fixtures' / 'summarize.json'
 
 
+class MeetingNotFoundError(Exception):
+    """Raised when requested meeting audio file is missing."""
+
+    def __init__(self, meeting_id: str) -> None:
+        message = f'Meeting {meeting_id} not found'
+        super().__init__(message)
+        self.meeting_id = meeting_id
+
+
 class TranscriptService:
     """Stream transcript fragments for SSE consumption."""
 
@@ -53,12 +62,23 @@ class TranscriptService:
         Yields:
             Dictionaries describing SSE events.
         """
-        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        audio_path = self._resolve_audio_path(meeting_id)
         result = await self._meeting_processor.process(audio_path)
 
         for item in self._yield_transcript_events(result):
             yield item
         yield self._build_summary_item(result)
+
+    def ensure_audio_available(self, meeting_id: str) -> None:
+        """Validate that raw audio exists for the provided meeting identifier."""
+        self._resolve_audio_path(meeting_id)
+
+    def _resolve_audio_path(self, meeting_id: str) -> Path:
+        """Return audio file path and ensure it exists."""
+        audio_path = self._raw_audio_dir / f'{meeting_id}.wav'
+        if not audio_path.is_file():
+            raise MeetingNotFoundError(meeting_id)
+        return audio_path
 
     def _yield_transcript_events(self, result: MeetingProcessingResult) -> Iterable[StreamItem]:
         """Return transcript events for the SSE stream."""

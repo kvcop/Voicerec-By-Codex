@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
     RAW_AUDIO_DIR,
+    MeetingNotFoundError,
     StreamItem,
     TranscriptService,
     get_transcript_service,
@@ -22,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
     from pathlib import Path
 
-router = APIRouter()
+router = APIRouter(prefix='/api/meeting')
 
 CHUNK_SIZE = 1024 * 1024
 ALLOWED_WAV_MIME_TYPES = {
@@ -80,12 +81,19 @@ async def _event_generator(
         yield payload
 
 
-@router.get('/stream/{meeting_id}')
+@router.get('/{meeting_id}/stream')
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    try:
+        service.ensure_audio_available(meeting_id)
+    except MeetingNotFoundError as exc:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     return StreamingResponse(
         _event_generator(meeting_id, service),
         media_type='text/event-stream',
