@@ -29,28 +29,60 @@ exports[`App snapshot > matches the initial render snapshot 1`] = `
         Open Dialog
       </button>
       <section
-        aria-live="polite"
-        class="_container_15c5d8"
+        class="_container_a6f314 _upload_f2db1c"
       >
-        <div
-          class="_header_15c5d8"
+        <h2
+          class="_title_a6f314"
         >
-          <h2
-            class="_title_15c5d8"
-          >
-            Live transcript
-          </h2>
-          <span
-            class="_status_15c5d8"
-            data-state="unsupported"
-          >
-            Live transcript is unavailable in this environment.
-          </span>
-        </div>
+          Upload meeting audio
+        </h2>
         <p
-          class="_placeholder_15c5d8"
+          class="_description_a6f314"
         >
-          Live transcript is unavailable in this environment.
+          Send a WAV recording to start real-time transcription.
+        </p>
+        <form
+          class="_form_a6f314"
+        >
+          <label
+            class="_fileLabel_a6f314"
+            for="meeting-audio"
+          >
+            <span>
+              Choose WAV file
+            </span>
+            <input
+              accept="audio/wav"
+              id="meeting-audio"
+              name="meeting-audio"
+              type="file"
+            />
+          </label>
+          <span
+            class="_fileName_a6f314"
+          >
+            No file selected yet
+          </span>
+          <button
+            class="_submit_a6f314"
+            type="submit"
+          >
+            Upload
+          </button>
+        </form>
+      </section>
+      <section
+        class="_streamPlaceholder_f2db1c"
+      >
+        <h2
+          class="_streamPlaceholderTitle_f2db1c"
+        >
+          Live transcript
+        </h2>
+        <p
+          class="_streamPlaceholderText_f2db1c"
+        >
+          Upload a meeting audio file to start streaming updates.
         </p>
       </section>
     </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
 import TranscriptStream, { EventSourceFactory } from './index';
 
@@ -8,7 +9,7 @@ class MockEventSource {
   public static instances: MockEventSource[] = [];
   public readonly url: string;
   public onopen: (() => void) | null = null;
-  public onmessage: ((data: string) => void) | null = null; // eslint-disable-line no-unused-vars
+  public onmessage: ((data: string) => void) | null = null;
   public onerror: (() => void) | null = null;
   private closed = false;
 
@@ -134,5 +135,43 @@ describe('TranscriptStream', () => {
     } else {
       delete globalWindow.EventSource;
     }
+  });
+
+  it('resets state and reconnects when meetingId changes', async () => {
+    const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
+
+    const TestHarness: React.FC = () => {
+      const [currentId, setCurrentId] = React.useState('meeting-a');
+
+      return (
+        <div>
+          <button type="button" onClick={() => setCurrentId('meeting-b')}>
+            change
+          </button>
+          <TranscriptStream meetingId={currentId} eventSourceFactory={factory} />
+        </div>
+      );
+    };
+
+    renderWithIntl(<TestHarness />);
+
+    expect(MockEventSource.instances).toHaveLength(1);
+    await act(async () => {
+      MockEventSource.instances[0].emitOpen();
+      MockEventSource.instances[0].emitMessage({ text: 'First message' });
+    });
+
+    expect(await screen.findByText('First message')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'change' }));
+
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(2));
+    expect(MockEventSource.instances[1].url).toBe('/api/meeting/stream/meeting-b');
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Waiting for transcript updates…', { selector: 'p' })
+      ).toBeTruthy(),
+    );
   });
 });

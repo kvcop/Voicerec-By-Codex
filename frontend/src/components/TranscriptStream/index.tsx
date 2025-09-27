@@ -5,7 +5,7 @@ import styles from './styles.module.css';
 
 type ConnectionState = 'connecting' | 'open' | 'error' | 'unsupported';
 
-export type EventSourceFactory = (url: string) => EventSource; // eslint-disable-line no-unused-vars
+export type EventSourceFactory = (url: string) => EventSource;
 
 interface TranscriptChunk {
   id?: string;
@@ -73,15 +73,16 @@ export default function TranscriptStream({
   React.useEffect(() => {
     const factory = eventSourceFactory ?? resolveDefaultFactory();
     if (!factory) {
+      setChunks([]);
       setConnectionState('unsupported');
       return undefined;
     }
 
-    const source = factory(`/api/meeting/stream/${meetingId}`);
-    let isActive = true;
-
     setChunks([]);
     setConnectionState('connecting');
+
+    const source = factory(`/api/meeting/stream/${meetingId}`);
+    let isActive = true;
 
     const handleOpen = () => {
       if (!isActive) {
