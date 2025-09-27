@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 if TYPE_CHECKING:  # pragma: no cover - imported for typing only
     from collections.abc import AsyncGenerator, Iterable
 
+from app.core.settings import GPUSettings
 from app.grpc_client import create_grpc_client
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -94,7 +95,7 @@ class TranscriptService:
             yield ' '.join(words[start : start + self._words_per_chunk])
 
 
-def _resolve_fixture_path() -> Path:
+def resolve_transcribe_fixture_path() -> Path:
     """Determine transcript fixture path for the mock gRPC client."""
     env_path = os.getenv('TRANSCRIBE_FIXTURE_PATH')
     if env_path:
@@ -102,8 +103,20 @@ def _resolve_fixture_path() -> Path:
     return DEFAULT_TRANSCRIBE_FIXTURE
 
 
-def get_transcript_service() -> TranscriptService:
-    """Return transcript service instance configured with mock gRPC client."""
-    fixture_path = _resolve_fixture_path()
-    client = create_grpc_client('transcribe', fixture_path)
+def get_transcript_service(
+    client_type: str | None = None,
+    gpu_settings: GPUSettings | None = None,
+) -> TranscriptService:
+    """Return transcript service instance configured with selected gRPC client."""
+    fixture_path = resolve_transcribe_fixture_path()
+    resolved_type = client_type or os.getenv('GRPC_CLIENT_TYPE', 'mock')
+    if resolved_type == 'grpc' and gpu_settings is None:
+        gpu_settings = GPUSettings()
+
+    client = create_grpc_client(
+        'transcribe',
+        fixture_path,
+        client_type=client_type,
+        gpu_settings=gpu_settings,
+    )
     return TranscriptService(cast('TranscriptClientProtocol', client))

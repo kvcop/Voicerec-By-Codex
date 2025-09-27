@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import uuid4
 
 import aiofiles
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import RAW_AUDIO_DIR, TranscriptService, get_transcript_service
@@ -29,6 +29,20 @@ ALLOWED_WAV_MIME_TYPES = {
 
 # Directory for raw audio files.
 RAW_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# Allow overriding gRPC client implementation via query parameter.
+ClientTypeParam = Annotated[str | None, Query(alias='client_type')]
+
+
+def _transcript_service_dependency(
+    base_service: Annotated[TranscriptService, Depends(get_transcript_service)],
+    client_type: ClientTypeParam = None,
+) -> TranscriptService:
+    """Resolve transcript service with optional client type override."""
+    if client_type is not None:
+        return get_transcript_service(client_type=client_type)
+    return base_service
 
 
 @router.post('/upload')
@@ -78,7 +92,7 @@ async def _event_generator(
 @router.get('/stream/{meeting_id}')
 async def stream_transcript(
     meeting_id: str,
-    service: Annotated[TranscriptService, Depends(get_transcript_service)],
+    service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
     return StreamingResponse(
