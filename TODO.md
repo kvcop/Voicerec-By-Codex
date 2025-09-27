@@ -34,4 +34,6 @@ Immediate priorities (P0): Finalizing the database integration and enabling auth
 Finally, regarding the research documentation: it’s a good idea to maintain an archive of research results for the agent. We should move the current LATEST_RESEARCH.md into a docs/researches/ directory (naming it with a date or topic for clarity) and then either keep a LATEST_RESEARCH.md updated with only the most recent info or instruct the agent to always read the latest file in that folder. Since the agent’s instructions currently explicitly look for LATEST_RESEARCH.md, we can do one of two things: (a) continue updating that file with each new research (and perhaps copy it into the folder for history), or (b) create a new file for each research (e.g. docs/researches/2025-09-27-deep-research.md) and update AGENTS.md to tell agents to refer to the files in docs/researches/ (and possibly rename/remove LATEST_RESEARCH if it’s just an archive now). Option (b) is cleaner for history, but requires adjusting the agent guidance. In the short term, we can implement task DX2 to set up this folder and update AGENTS.md accordingly. This will ensure future agents have access to the latest context and past research logs as needed.
 
 ## Part 1 2025-09-26
-Part 1 is DONE and is located in `docs/TODOS/part1.md`.
+Part 1 is DONE and is located in `docs/TODOS/part_001.md`.
+
+После выполнения TODOшки перемещаются в ёdocs/TODOS/part_XXX.md`.
