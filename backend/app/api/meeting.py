@@ -13,17 +13,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.transcript import (
-<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
-    RAW_AUDIO_DIR,
-    MeetingNotFoundError,
-    TranscriptService,
-    get_transcript_service,
-=======
     MeetingNotFoundError,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
->>>>>> main
 )
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints

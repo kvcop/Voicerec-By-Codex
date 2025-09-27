@@ -81,11 +81,7 @@ class TranscriptService:
             Dictionaries with chunk metadata and text content.
         """
         audio_path = self._resolve_audio_path(meeting_id)
-<<<<<< codex/2025-09-27-refactor-transcript-service-for-byte-streaming
         payload = await self._client.run(self._read_audio_bytes(audio_path))
-=======
-        payload = await self._client.run(audio_path)
->>>>>> main
 
         for index, chunk in enumerate(self._extract_chunks(payload), start=1):
             yield {'index': index, 'text': chunk}
