@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn, Self, Any, cast
-
+from typing import TYPE_CHECKING, NoReturn, Self, cast
 
 from fastapi.testclient import TestClient
 
@@ -218,7 +217,6 @@ def test_stream() -> None:
 
 
 def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
-<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
     """Missing meeting audio results in 404 without invoking transcript processor."""
 
     class _StubProcessor:
@@ -236,31 +234,9 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
 
     try:
         response = client.get('/api/meeting/missing/stream')
-=======
-    """Missing meeting audio results in 404 without invoking transcript client."""
-
-    class _FakeClient:
-        def __init__(self) -> None:
-            self.calls: list[Path] = []
-
-        async def run(self, source: Path) -> dict[str, Any]:
-            self.calls.append(source)
-            return {'segments': [{'text': 'should not be used'}]}
-
-    fake_client = _FakeClient()
-    service = TranscriptService(fake_client, raw_audio_dir=tmp_path)
-    app.dependency_overrides[get_transcript_service] = lambda: service
-
-    try:
-        response = client.get('/stream/missing')
->>>>>> main
     finally:
         app.dependency_overrides.pop(get_transcript_service, None)
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Meeting missing not found'}
-<<<<<< codex/2025-09-27-add-domain-service-for-meeting-processing
     assert processor.calls == []
-=======
-    assert fake_client.calls == []
->>>>>> main
