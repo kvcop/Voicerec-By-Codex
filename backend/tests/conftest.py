@@ -10,6 +10,7 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
+from app.core.settings import get_settings
 from app.db.base import Base, import_model_modules
 from app.db.session import get_session, reset_engine_cache
 
@@ -50,11 +51,20 @@ async def db_engine(sqlite_test_url: str) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(sqlite_test_url)
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.execute(
+            text('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(64) NOT NULL)')
+        )
+        await connection.execute(text('DELETE FROM alembic_version'))
+        await connection.execute(
+            text('INSERT INTO alembic_version (version_num) VALUES (:version)'),
+            {'version': get_settings().database_schema_version},
+        )
 
     try:
         yield engine
     finally:
         async with engine.begin() as connection:
+            await connection.execute(text('DROP TABLE IF EXISTS alembic_version'))
             await connection.run_sync(Base.metadata.drop_all)
         await engine.dispose()
 

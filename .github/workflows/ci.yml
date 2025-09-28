@@ -30,8 +30,8 @@ jobs:
             gpu:
               - 'gpu_services/**'
               - '.github/workflows/**'
-              - 'TODO_GPU.md'
               - 'scripts/install_gpu_deps.sh'
+              - 'scripts/install_gpu_ci_deps.sh'
 
   backend:
     runs-on: ubuntu-latest
@@ -105,7 +105,7 @@ jobs:
       - name: Install uv
         run: pip install uv
       - name: Install GPU services dependencies
-        run: ./scripts/install_gpu_ci_deps.sh
+        run: ./scripts/install_gpu_ci_deps.sh --ci
       - name: Ruff check (GPU services)
         run: |
           if [ -d ../gpu_services ]; then
@@ -115,7 +115,7 @@ jobs:
       - name: Ruff format (GPU services)
         run: |
           if [ -d ../gpu_services ]; then
-            uv run ruff format ../gpu_services
+            uv run ruff format --check ../gpu_services
           fi
         working-directory: backend
       - name: Mypy (GPU services)

@@ -50,4 +50,4 @@ Part 2 is IN_PROGRESS and is located in `TODO.md`
 ## Part 4 2025-09-27
 Part 4 is POSTPONED, is waiting for Parts 2 and 3 and is located in `TODO_INTEGRATION.md`
 
-После выполнения TODOшки перемещаются в `docs/TODOS/part_XXX_{phase}.md`.
+После выполнения ВСЕХ TODO в файле, файл целиком перемещается в `docs/TODOS/part_XXX_{phase}.md`.
