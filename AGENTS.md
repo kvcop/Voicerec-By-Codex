@@ -7,6 +7,12 @@ This repository contains both backend and frontend code for a local meeting tran
 - Backend tests: run from inside the `backend` directory using `uv run pytest`. **You must execute these tests after every backend code change.**
 - Frontend tests: `npm test` inside `frontend` directory (uses `vitest`).
 - Always run `uv sync` in the `backend` directory before executing any `uv run` commands or tests. All `uv run` commands must be executed from the `backend` folder and not from the repository root.
+- GPU services linting and type checking run inside CI from the `backend` virtual environment. The workflow installs deps via `./scripts/install_gpu_ci_deps.sh --ci`, which first provisions the shared backend virtualenv and then seeds it with CPU wheels for `torch==2.8.0` and `torchaudio==2.8.0` (no NVIDIA libraries are downloaded). After that it executes `uv run ruff check --fix ../gpu_services`, `uv run ruff format --check ../gpu_services`, and `uv run mypy ../gpu_services`, each guarded by `if [ -d ../gpu_services ]` so the job succeeds even when the directory is absent. Do not add GPU-only system dependencies to the workflow—CI runners never expose real GPUs. A placeholder CI step exists for future GPU tests; enable it once real smoke tests land.
+
+- Whenever you modify any code inside `gpu_services/`, you must run the following commands from the `backend` directory and include them in your execution log:
+  1. `uv run ruff check --fix ../gpu_services`
+  2. `uv run ruff format ../gpu_services`
+  3. `uv run mypy ../gpu_services`
 
 Prior to running tests, run code linters and static analysis from the `backend` directory in the following order using `uv run` (do this whenever you modify backend code):
 1. `uv run ruff check --fix .`

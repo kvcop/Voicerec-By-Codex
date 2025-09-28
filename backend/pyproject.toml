@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.30.0",
     "aiofiles>=24.1.0",
@@ -25,6 +25,7 @@ dev = [
     "ruff==0.11.13",
     "types-aiofiles>=23.1.0.5",
     "grpcio-tools>=1.68.0",
+    "types-grpcio>=1.0.0.20250525",
 ]
 
 [tool.ruff]
@@ -97,7 +98,7 @@ extend-immutable-calls = [
 ]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 exclude = ["^migrations/$", "^venv/$"]
 plugins = ["pydantic.mypy"]
 

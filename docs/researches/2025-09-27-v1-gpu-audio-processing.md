@@ -24,12 +24,12 @@ date: 2025-09-27
 
 ### Подготовка окружения Whisper (G1_1)
 
-Для развёртывания ASR-сервиса добавлен отдельный скрипт `scripts/install_gpu_deps.sh`. Он создаёт виртуальное окружение `gpu_services/.venv` и устанавливает обязательные зависимости: PyTorch с поддержкой CUDA, torchaudio, transformers и пакет `openai-whisper`. Скрипт используется через `./install_deps.sh --gpu`, чтобы не тянуть тяжёлые пакеты при стандартной установке backend/frontend.
+Для развёртывания ASR-сервиса добавлен отдельный скрипт `scripts/install_gpu_deps.sh`. Он создаёт виртуальное окружение `gpu_services/.venv` и устанавливает обязательные зависимости: PyTorch с поддержкой CUDA, torchaudio, transformers и пакет `openai-whisper`. Скрипт используется через `./install_deps.sh --gpu`, чтобы не тянуть тяжёлые пакеты при стандартной установке backend/frontend. Для CI добавлен облегчённый помощник `scripts/install_gpu_ci_deps.sh --ci`, который переиспользует backend-окружение и ставит только CPU-версии `torch==2.8.0` и `torchaudio==2.8.0`, чтобы проверки ruff/mypy не скачивали гигабайты CUDA-библиотек.
 
 Параметры установки можно настраивать переменными окружения перед запуском:
 
 - `GPU_PYTHON_VERSION` — версия Python для окружения (по умолчанию 3.10).
-- `GPU_TORCH_VERSION` и `GPU_TORCHAUDIO_VERSION` — версии PyTorch и torchaudio (по умолчанию 2.5.1).
+- `GPU_TORCH_VERSION` и `GPU_TORCHAUDIO_VERSION` — версии PyTorch и torchaudio (по умолчанию 2.8.0).
 - `GPU_CUDA_VARIANT` — тип колёс PyTorch: `cu121`, `cu118` либо `cpu` для тестирования без GPU.
 
 Если указать `GPU_CUDA_VARIANT=cpu`, будет установлена CPU-сборка PyTorch, пригодная для отладки на машине без видеокарты. В `.env` добавлен параметр `ASR_MODEL_SIZE`, позволяющий задавать модель меньшего размера (например, `medium` или `small`) при запуске сервиса. Whisper Large-v2 скачивает веса автоматически при первом использовании, поэтому дополнительных команд для загрузки модели не требуется.
