@@ -5,7 +5,7 @@ This document provides the complete technology stack and file tree structure for
 ## Technology Stack
 
 ### Backend Technologies
-- **Python 3.13+** with **uv** - Fast Python package installer and resolver
+- **Python 3.12+** with **uv** - Fast Python package installer and resolver
 - **FastAPI 0.115.12+** - Modern async web framework with automatic API documentation
 - **SQLAlchemy 2.0.41+** with **asyncpg** - Async ORM with PostgreSQL driver
 - **Pydantic Settings 2.0+** - Configuration management with type validation and .env support
