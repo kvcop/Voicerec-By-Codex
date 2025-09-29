@@ -2,4 +2,5 @@
 
 __all__ = [
     'asr_service',
+    'diarization_resources',
 ]
