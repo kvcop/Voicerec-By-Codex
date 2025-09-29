@@ -34,6 +34,7 @@ def test_raw_audio_dir_default_location(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv('DATABASE_URL', 'postgresql://example')
     monkeypatch.setenv('GPU_GRPC_HOST', 'host')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
+    monkeypatch.setenv('AUTH_SECRET_KEY', 'integration-secret-key')
 
     get_settings.cache_clear()
     raw_dir = resolve_raw_audio_dir()

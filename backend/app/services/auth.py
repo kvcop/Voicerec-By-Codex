@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fastapi import Depends
 
-from app.core.security import hash_password
+from app.core.security import create_access_token, hash_password, verify_password
 from app.db.repositories.user import UserRepository
 from app.db.session import get_session
 
@@ -16,6 +17,9 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+AUTH_SCHEME_BEARER = 'bearer'
+
+
 class EmailAlreadyExistsError(Exception):
     """Raised when attempting to register an already registered email address."""
 
@@ -23,6 +27,23 @@ class EmailAlreadyExistsError(Exception):
         message = f'User with email {email} already exists'
         super().__init__(message)
         self.email = email
+
+
+class InvalidCredentialsError(Exception):
+    """Raised when supplied credentials do not match a stored user."""
+
+    def __init__(self) -> None:
+        message = 'Invalid email or password'
+        super().__init__(message)
+
+
+@dataclass(slots=True)
+class LoginResult:
+    """Container for the outcome of a login attempt."""
+
+    user: User
+    access_token: str
+    token_type: str = AUTH_SCHEME_BEARER
 
 
 class AuthService:
@@ -43,6 +64,18 @@ class AuthService:
         user = await self._user_repository.create(email=email, hashed_password=hashed)
         await self._session.commit()
         return user
+
+    async def login_user(self, *, email: str, password: str) -> LoginResult:
+        """Authenticate a user and return an access token on success."""
+        user = await self._user_repository.get_by_email(email)
+        if user is None or not verify_password(password, user.hashed_password):
+            raise InvalidCredentialsError
+
+        token = create_access_token(
+            subject=str(user.id),
+            additional_claims={'email': user.email},
+        )
+        return LoginResult(user=user, access_token=token)
 
 
 async def get_auth_service(

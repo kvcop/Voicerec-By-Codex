@@ -75,6 +75,22 @@ class Settings(BaseSettings):
         description='Whisper model size used by the GPU ASR service',
     )
     gpu: GPUSettings = Field(default_factory=GPUSettings)
+    auth_secret_key: str = Field(
+        alias='AUTH_SECRET_KEY',
+        description='Secret key used to sign JWT access tokens',
+        min_length=16,
+    )
+    auth_token_algorithm: str = Field(
+        default='HS256',
+        alias='AUTH_TOKEN_ALGORITHM',
+        description='Algorithm employed to sign JWT access tokens',
+    )
+    auth_token_expire_minutes: int = Field(
+        default=60,
+        alias='AUTH_TOKEN_EXPIRE_MINUTES',
+        description='Lifetime of JWT access tokens in minutes',
+        ge=1,
+    )
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 

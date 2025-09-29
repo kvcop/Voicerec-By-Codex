@@ -1,6 +1,13 @@
 """Service layer package."""
 
-from app.services.auth import AuthService, EmailAlreadyExistsError, get_auth_service
+from app.services.auth import (
+    AUTH_SCHEME_BEARER,
+    AuthService,
+    EmailAlreadyExistsError,
+    InvalidCredentialsError,
+    LoginResult,
+    get_auth_service,
+)
 from app.services.meeting_processing import (
     MeetingEvent,
     MeetingProcessingResult,
@@ -16,8 +23,11 @@ from app.services.transcript import (
 )
 
 __all__ = [
+    'AUTH_SCHEME_BEARER',
     'AuthService',
     'EmailAlreadyExistsError',
+    'InvalidCredentialsError',
+    'LoginResult',
     'MeetingEvent',
     'MeetingNotFoundError',
     'MeetingProcessingResult',

@@ -40,10 +40,12 @@ async def db_engine(sqlite_test_url: str) -> AsyncIterator[AsyncEngine]:
     previous_database_url = os.environ.get('DATABASE_URL')
     previous_gpu_host = os.environ.get('GPU_GRPC_HOST')
     previous_gpu_port = os.environ.get('GPU_GRPC_PORT')
+    previous_auth_secret = os.environ.get('AUTH_SECRET_KEY')
 
     os.environ['DATABASE_URL'] = sqlite_test_url
     os.environ.setdefault('GPU_GRPC_HOST', 'localhost')
     os.environ.setdefault('GPU_GRPC_PORT', '50051')
+    os.environ.setdefault('AUTH_SECRET_KEY', 'test-secret-key-1234567890')
 
     reset_engine_cache()
     import_model_modules()
@@ -84,6 +86,11 @@ async def db_engine(sqlite_test_url: str) -> AsyncIterator[AsyncEngine]:
             os.environ['GPU_GRPC_PORT'] = previous_gpu_port
         else:
             os.environ.pop('GPU_GRPC_PORT', None)
+
+        if previous_auth_secret is not None:
+            os.environ['AUTH_SECRET_KEY'] = previous_auth_secret
+        else:
+            os.environ.pop('AUTH_SECRET_KEY', None)
 
 
 @pytest.fixture

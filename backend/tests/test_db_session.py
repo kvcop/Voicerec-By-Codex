@@ -14,6 +14,7 @@ async def test_async_session_uses_temp_database_url(
     monkeypatch.setenv('GPU_GRPC_HOST', 'localhost')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
     monkeypatch.setenv('DATABASE_URL', temp_url)
+    monkeypatch.setenv('AUTH_SECRET_KEY', 'session-secret-key')
     session_module = importlib.import_module('app.db.session')
     importlib.reload(session_module)
     session_module.reset_engine_cache()
