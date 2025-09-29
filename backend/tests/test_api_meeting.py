@@ -1,12 +1,14 @@
 """Tests for meeting API endpoints."""
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable, Iterator
+from contextlib import contextmanager
 from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, NoReturn, Self, cast
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
@@ -14,8 +16,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import meeting
+from app.core.security import create_access_token, hash_password
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
-from app.main import app
+from app.db.repositories.user import UserRepository
+from app.services.auth import AUTH_SCHEME_BEARER
 from app.services.transcript import (
     TranscriptService,
     get_transcript_service,
@@ -23,9 +27,35 @@ from app.services.transcript import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
+    from fastapi import FastAPI
+
     from app.services.meeting_processing import MeetingProcessingService
 
-client = TestClient(app)
+OverrideMap = dict[Callable[..., object], Callable[..., object]]
+
+AUTH_HEADER_NAME = 'Authorization'
+BEARER_PREFIX = AUTH_SCHEME_BEARER.capitalize()
+
+
+@contextmanager
+def _override_dependencies(app: 'FastAPI', overrides: OverrideMap) -> Iterator[None]:
+    """Temporarily apply dependency overrides for the FastAPI app."""
+    app.dependency_overrides.update(overrides)
+    try:
+        yield
+    finally:
+        for dependency in overrides:
+            app.dependency_overrides.pop(dependency, None)
+
+
+async def _build_auth_headers(session: AsyncSession) -> dict[str, str]:
+    """Create authorization headers for a newly provisioned user."""
+    repository = UserRepository(session)
+    email = f'meeting-{uuid4().hex}@example.com'
+    user = await repository.create(email=email, hashed_password=hash_password('SecurePass123'))
+    await session.commit()
+    token = create_access_token(subject=str(user.id), additional_claims={'email': user.email})
+    return {AUTH_HEADER_NAME: f'{BEARER_PREFIX} {token}'}
 
 
 def test_raw_audio_dir_default_location(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -46,7 +76,13 @@ def test_raw_audio_dir_default_location(monkeypatch: pytest.MonkeyPatch) -> None
         get_settings.cache_clear()
 
 
-def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upload(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Uploading audio saves file and returns meeting id."""
     meeting_id = 'abc123'
 
@@ -89,15 +125,16 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
 
-    app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
-    try:
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
+    with _override_dependencies(fastapi_app, overrides):
         response = client.post(
             '/api/meeting/upload',
             files={'file': ('audio.wav', data, 'audio/wav')},
+            headers=headers,
         )
-    finally:
-        app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
-    assert response.status_code == HTTPStatus.OK
+    assert response.status_code == HTTPStatus.OK, response.json()
     assert response.json() == {'meeting_id': meeting_id}
     saved = tmp_path / f'{meeting_id}.wav'
     assert saved.read_bytes() == data
@@ -105,39 +142,57 @@ def test_upload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert opened_files[0].closed is True
 
 
-def test_upload_rejects_non_wav(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upload_rejects_non_wav(
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Uploading non-WAV files is rejected with 415 status."""
-    app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
-    try:
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
+    with _override_dependencies(fastapi_app, overrides):
         response = client.post(
             '/api/meeting/upload',
             files={'file': ('notes.txt', b'123', 'text/plain')},
+            headers=headers,
         )
-    finally:
-        app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
 
-    assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+    assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE, response.json()
     assert response.json() == {'detail': 'Only WAV audio is supported.'}
     assert not list(tmp_path.iterdir())
 
 
-def test_upload_accepts_mixed_case_mime(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upload_accepts_mixed_case_mime(
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Mixed-case WAV MIME types are accepted."""
-    app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
-    try:
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
+    with _override_dependencies(fastapi_app, overrides):
         response = client.post(
             '/api/meeting/upload',
             files={'file': ('audio.wav', b'abc', 'audio/WAV')},
+            headers=headers,
         )
-    finally:
-        app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
 
-    assert response.status_code == HTTPStatus.OK
+    assert response.status_code == HTTPStatus.OK, response.json()
     assert 'meeting_id' in response.json()
     assert list(tmp_path.iterdir())
 
 
-def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_upload_streams_large_files(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Large uploads are streamed to disk without buffering entire payload."""
     meeting_id = 'big'
 
@@ -189,22 +244,27 @@ def test_upload_streams_large_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
     monkeypatch.setattr(meeting, '_iter_upload_file', _fake_iter)
 
-    app.dependency_overrides[meeting.get_raw_audio_dir] = lambda: tmp_path
-    try:
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
+    with _override_dependencies(fastapi_app, overrides):
         response = client.post(
             '/api/meeting/upload',
             files={'file': ('audio.wav', b'dummy', 'audio/wav')},
+            headers=headers,
         )
-    finally:
-        app.dependency_overrides.pop(meeting.get_raw_audio_dir, None)
 
-    assert response.status_code == HTTPStatus.OK
+    assert response.status_code == HTTPStatus.OK, response.json()
     saved = tmp_path / f'{meeting_id}.wav'
     assert saved.read_bytes() == b''.join(chunks)
     assert writes == chunks
 
 
-def test_stream() -> None:
+@pytest.mark.asyncio
+async def test_stream(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """SSE endpoint streams transcript fragments and summary events."""
 
     class _FakeTranscriptService:
@@ -223,15 +283,16 @@ def test_stream() -> None:
             yield {'event': 'summary', 'data': {'summary': 'Done'}}
 
     fake_service = _FakeTranscriptService()
-    app.dependency_overrides[get_transcript_service] = lambda: fake_service
-
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {get_transcript_service: lambda: fake_service}
     lines: list[str] = []
-    try:
-        with client.stream('GET', '/api/meeting/xyz/stream') as response:
-            assert response.status_code == HTTPStatus.OK
-            lines = [line for line in response.iter_lines() if line != '']
-    finally:
-        app.dependency_overrides.pop(get_transcript_service, None)
+    with (
+        _override_dependencies(fastapi_app, overrides),
+        client.stream('GET', '/api/meeting/xyz/stream', headers=headers) as response,
+    ):
+        assert response.status_code == HTTPStatus.OK, response.json()
+        lines = [line for line in response.iter_lines() if line != '']
 
     assert lines == [
         'event: transcript',
@@ -244,7 +305,12 @@ def test_stream() -> None:
     assert fake_service.calls == ['xyz']
 
 
-def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_stream_missing_meeting_returns_404(
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Missing meeting audio results in 404 without invoking transcript processor."""
 
     class _StubProcessor:
@@ -263,19 +329,23 @@ def test_stream_missing_meeting_returns_404(tmp_path: Path) -> None:
         cast('MeetingProcessingService', processor),
         raw_audio_dir=tmp_path,
     )
-    app.dependency_overrides[get_transcript_service] = lambda: service
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {get_transcript_service: lambda: service}
+    with _override_dependencies(fastapi_app, overrides):
+        response = client.get('/api/meeting/missing/stream', headers=headers)
 
-    try:
-        response = client.get('/api/meeting/missing/stream')
-    finally:
-        app.dependency_overrides.pop(get_transcript_service, None)
-
-    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.status_code == HTTPStatus.NOT_FOUND, response.json()
     assert response.json() == {'detail': 'Meeting missing not found'}
     assert processor.calls == []
 
 
-def test_stream_emits_heartbeat_before_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_stream_emits_heartbeat_before_payload(
+    monkeypatch: pytest.MonkeyPatch,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """SSE stream sends heartbeat comments while awaiting payloads."""
 
     class _DelayedService:
@@ -295,17 +365,19 @@ def test_stream_emits_heartbeat_before_payload(monkeypatch: pytest.MonkeyPatch) 
             return generator()
 
     service = _DelayedService()
-    app.dependency_overrides[get_transcript_service] = lambda: service
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {get_transcript_service: lambda: service}
     monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
     monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.2)
 
     lines: list[str] = []
-    try:
-        with client.stream('GET', '/api/meeting/meeting-id/stream') as response:
-            assert response.status_code == HTTPStatus.OK
-            lines = [line for line in response.iter_lines() if line]
-    finally:
-        app.dependency_overrides.pop(get_transcript_service, None)
+    with (
+        _override_dependencies(fastapi_app, overrides),
+        client.stream('GET', '/api/meeting/meeting-id/stream', headers=headers) as response,
+    ):
+        assert response.status_code == HTTPStatus.OK, response.status_code
+        lines = [line for line in response.iter_lines() if line]
 
     assert ': heartbeat' in lines
     assert lines[-2:] == [
@@ -315,7 +387,12 @@ def test_stream_emits_heartbeat_before_payload(monkeypatch: pytest.MonkeyPatch) 
     assert service.checked == ['meeting-id']
 
 
-def test_stream_stops_after_idle_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_stream_stops_after_idle_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
     """Stream closes when payloads are not produced within idle timeout."""
 
     class _HangingService:
@@ -332,17 +409,19 @@ def test_stream_stops_after_idle_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
             return generator()
 
     service = _HangingService()
-    app.dependency_overrides[get_transcript_service] = lambda: service
+    client = TestClient(fastapi_app)
+    headers = await _build_auth_headers(fastapi_db_session)
+    overrides: OverrideMap = {get_transcript_service: lambda: service}
     monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
     monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.05)
 
     lines: list[str] = []
-    try:
-        with client.stream('GET', '/api/meeting/meeting-id/stream') as response:
-            assert response.status_code == HTTPStatus.OK
-            lines = [line for line in response.iter_lines() if line]
-    finally:
-        app.dependency_overrides.pop(get_transcript_service, None)
+    with (
+        _override_dependencies(fastapi_app, overrides),
+        client.stream('GET', '/api/meeting/meeting-id/stream', headers=headers) as response,
+    ):
+        assert response.status_code == HTTPStatus.OK, response.status_code
+        lines = [line for line in response.iter_lines() if line]
 
     assert lines
     assert all(line == ': heartbeat' for line in lines)

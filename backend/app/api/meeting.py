@@ -7,13 +7,14 @@ import contextlib
 import json
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 from uuid import uuid4
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
+from app.api.dependencies import get_current_user
 from app.services.transcript import (
     MeetingNotFoundError,
     StreamItem,
@@ -24,6 +25,10 @@ from app.services.transcript import (
 
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
+
+    from app.models.user import User
+else:
+    User = Any
 
 router = APIRouter(prefix='/api/meeting')
 legacy_router = APIRouter()
@@ -57,7 +62,10 @@ def _transcript_service_dependency(
             session=base_service.session,
             client_type=client_type,
             raw_audio_dir=base_service.raw_audio_dir,
+            enforce_audio_presence=True,
         )
+    if hasattr(base_service, 'enforce_audio_presence'):
+        base_service.enforce_audio_presence()
     return base_service
 
 
@@ -65,8 +73,10 @@ def _transcript_service_dependency(
 async def upload_audio(
     file: Annotated[UploadFile, File(...)],
     raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
+    _ = current_user.id  # Access attribute to mark the dependency as used.
     content_type = (file.content_type or '').lower()
     if content_type not in ALLOWED_WAV_MIME_TYPES:
         raise HTTPException(
@@ -150,8 +160,10 @@ async def _event_generator(
 async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
+    _ = current_user.id
     return _streaming_response(meeting_id, service)
 
 
@@ -159,8 +171,10 @@ async def stream_transcript(
 async def stream_transcript_legacy(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> StreamingResponse:
     """Legacy path kept for backward compatibility with early clients."""
+    _ = current_user.id
     return _streaming_response(meeting_id, service)
 
 
