@@ -1,5 +1,6 @@
 """Service layer package."""
 
+from app.services.auth import AuthService, EmailAlreadyExistsError, get_auth_service
 from app.services.meeting_processing import (
     MeetingEvent,
     MeetingProcessingResult,
@@ -15,6 +16,8 @@ from app.services.transcript import (
 )
 
 __all__ = [
+    'AuthService',
+    'EmailAlreadyExistsError',
     'MeetingEvent',
     'MeetingNotFoundError',
     'MeetingProcessingResult',
@@ -22,6 +25,7 @@ __all__ = [
     'PipelineService',
     'StreamItem',
     'TranscriptService',
+    'get_auth_service',
     'get_pipeline_service',
     'get_transcript_service',
     'resolve_raw_audio_dir',

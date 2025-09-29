@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, Request
 from loguru import logger
 
+from app.api.auth import router as auth_router
 from app.api.meeting import legacy_router as meeting_legacy_router
 from app.api.meeting import router as meeting_router
 from app.core.logging import configure_logging
@@ -52,6 +53,7 @@ async def http_logging_middleware(
     return response
 
 
+app.include_router(auth_router)
 app.include_router(meeting_router)
 app.include_router(meeting_legacy_router)
 
