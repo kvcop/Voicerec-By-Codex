@@ -87,7 +87,7 @@ class SummarizerSettings:
     @classmethod
     def from_env(cls) -> SummarizerSettings:
         """Load summarizer configuration from environment variables."""
-        api_base = os.getenv('LLM_API_BASE', '').strip().rstrip('/')
+        api_base = os.getenv('LLM_API_BASE', '').strip()
         if not api_base:
             message = 'LLM_API_BASE must be configured for the summarization service'
             raise RuntimeError(message)
