@@ -3,4 +3,5 @@
 __all__ = [
     'asr_service',
     'diarization_resources',
+    'diarize_service',
 ]
