@@ -5,13 +5,17 @@ from __future__ import annotations
 import importlib
 import logging
 import os
+import re
+import time
 from concurrent import futures
 from functools import cache
-from typing import TYPE_CHECKING, Protocol
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from app.clients import transcribe_pb2, transcribe_pb2_grpc
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
 
     class AudioRequest(Protocol):
         """Typed representation of the transcribe.AudioRequest message."""
@@ -26,14 +30,14 @@ if TYPE_CHECKING:
     class TranscribeServicer(Protocol):
         """Protocol for the generated Transcribe service base class."""
 
-    def add_transcribe_servicer_to_server(servicer: TranscribeServicer, server: object) -> None:
-        """Register the ASR servicer with the gRPC server."""
+    add_transcribe_servicer_to_server: Callable[[TranscribeServicer, object], None]
 
 else:  # pragma: no cover - runtime fallbacks
     AudioRequest = transcribe_pb2.AudioRequest
     Transcript = transcribe_pb2.Transcript
     TranscribeServicer = transcribe_pb2_grpc.TranscribeServicer
-    add_transcribe_servicer_to_server = transcribe_pb2_grpc.add_TranscribeServicer_to_server
+
+add_transcribe_servicer_to_server = transcribe_pb2_grpc.add_TranscribeServicer_to_server
 
 grpc = importlib.import_module('grpc')
 
@@ -74,30 +78,85 @@ class ASRService(TranscribeServicer):
             self._device,
             self._dtype_name,
         )
-        self._model, self._processor = _load_whisper_components(
+        model, processor = _load_whisper_components(
             self._model_name,
             self._device,
             self._dtype_name,
         )
+        self._model: Any = model
+        self._processor: Any = processor
 
     def run(
         self,
         request: AudioRequest,
         context: ServicerContext,
     ) -> Transcript:
-        """Handle transcription requests.
+        """Handle transcription requests by running Whisper inference.
 
         Args:
             request: Incoming gRPC request with audio metadata.
             context: gRPC request context.
 
         Returns:
-            Placeholder transcript response until ASR logic is implemented.
+            Transcript message with normalised transcription text.
         """
-        LOGGER.info('Received transcription request for path: %s', request.path or '<empty>')
-        message = 'ASR inference is not implemented yet.'
-        context.abort(grpc.StatusCode.UNIMPLEMENTED, message)
-        raise RuntimeError(message)
+        received_path = (request.path or '').strip()
+        LOGGER.info('Received transcription request for path: %s', received_path or '<empty>')
+
+        if not received_path:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, 'Audio path must be provided')
+
+        audio_path = Path(received_path)
+        if not audio_path.exists():
+            context.abort(grpc.StatusCode.NOT_FOUND, f'Audio file not found: {audio_path}')
+        if not audio_path.is_file():
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f'Audio path is not a file: {audio_path}',
+            )
+
+        try:
+            waveform, sample_rate = _load_waveform(audio_path)
+        except FileNotFoundError:
+            context.abort(grpc.StatusCode.NOT_FOUND, f'Audio file not found: {audio_path}')
+        except Exception as exc:  # pragma: no cover - defensive, torchaudio raises RuntimeError
+            LOGGER.exception('Failed to load audio file %s', audio_path)
+            context.abort(grpc.StatusCode.INTERNAL, f'Failed to load audio file: {exc}')
+
+        if waveform.numel() == 0:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, 'Audio file contains no samples')
+
+        inference_start = time.perf_counter()
+        torch = importlib.import_module('torch')
+
+        inputs = self._processor(
+            waveform.squeeze(0).numpy(),
+            sampling_rate=sample_rate,
+            return_tensors='pt',
+        )
+
+        input_features = inputs.input_features.to(self._model.device)
+        input_features = input_features.to(dtype=getattr(torch, self._dtype_name))
+
+        generated_tokens = self._model.generate(input_features)
+        transcription = self._processor.batch_decode(
+            generated_tokens,
+            skip_special_tokens=True,
+        )[0]
+
+        inference_duration = time.perf_counter() - inference_start
+        LOGGER.info(
+            'Finished Whisper inference for %s in %.2f seconds',
+            audio_path,
+            inference_duration,
+        )
+
+        normalised_text = _post_process_transcript(transcription)
+        LOGGER.debug('Transcription after normalisation: %s', normalised_text)
+
+        transcript_cls = getattr(transcribe_pb2, 'Transcript')  # noqa: B009
+        response = transcript_cls(text=normalised_text)
+        return cast('Transcript', response)
 
     Run = run
 
@@ -136,7 +195,7 @@ def _load_whisper_components(
     model_name: str,
     device: str,
     dtype_name: str,
-) -> tuple[object, object]:
+) -> tuple[Any, Any]:
     """Load and cache the Whisper model and processor."""
     torch = importlib.import_module('torch')
     transformers = importlib.import_module('transformers')
@@ -151,6 +210,35 @@ def _load_whisper_components(
     processor = transformers.WhisperProcessor.from_pretrained(model_name)
 
     return model, processor
+
+
+def _load_waveform(audio_path: Path) -> tuple[Any, int]:
+    """Load, normalise channels and resample the input waveform."""
+    torchaudio = importlib.import_module('torchaudio')
+    torch = importlib.import_module('torch')
+
+    waveform, sample_rate = torchaudio.load(str(audio_path))
+    if waveform.size(0) > 1:
+        waveform = waveform.mean(dim=0, keepdim=True)
+
+    target_sample_rate = 16000
+    if sample_rate != target_sample_rate:
+        waveform = torchaudio.functional.resample(waveform, sample_rate, target_sample_rate)
+        sample_rate = target_sample_rate
+
+    waveform = waveform.to(dtype=torch.float32)
+    return waveform, sample_rate
+
+
+_POST_PROCESS_RULES = ((re.compile(r'\bрум\b', re.IGNORECASE), 'RUMA'),)
+
+
+def _post_process_transcript(transcript: str) -> str:
+    """Apply domain-specific normalisation to the recognised text."""
+    normalised = transcript.strip()
+    for pattern, replacement in _POST_PROCESS_RULES:
+        normalised = pattern.sub(replacement, normalised)
+    return normalised
 
 
 def serve() -> None:
