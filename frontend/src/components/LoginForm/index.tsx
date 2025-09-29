@@ -6,9 +6,10 @@ import styles from './styles.module.css';
 
 interface LoginFormProps {
   className?: string;
+  onRequestRegister?: () => void;
 }
 
-export default function LoginForm({ className }: LoginFormProps) {
+export default function LoginForm({ className, onRequestRegister }: LoginFormProps) {
   const t = useTranslations();
   const { login } = useAuth();
   const [email, setEmail] = React.useState('');
@@ -79,6 +80,14 @@ export default function LoginForm({ className }: LoginFormProps) {
       {error ? (
         <p className={styles.error} role="alert">
           {error}
+        </p>
+      ) : null}
+      {onRequestRegister ? (
+        <p className={styles.helper}>
+          {t('auth.login.noAccount')}{' '}
+          <button type="button" className={styles.linkButton} onClick={onRequestRegister}>
+            {t('auth.login.switchToRegister')}
+          </button>
         </p>
       ) : null}
     </section>
