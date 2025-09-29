@@ -364,6 +364,7 @@ async def test_stream_emits_heartbeat_before_payload(
 
         def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
             self.streamed.append(meeting_id)
+
             async def generator() -> AsyncGenerator[dict[str, object], None]:
                 await asyncio.sleep(0.03)
                 yield {'event': 'summary', 'data': {'summary': 'Done'}}
@@ -414,6 +415,7 @@ async def test_stream_stops_after_idle_timeout(
 
         def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
             self.stream_requests.append(meeting_id)
+
             async def generator() -> AsyncGenerator[dict[str, object], None]:
                 await asyncio.sleep(1)
                 yield {'event': 'summary', 'data': {'summary': 'Late'}}
