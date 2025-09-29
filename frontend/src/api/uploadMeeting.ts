@@ -1,5 +1,5 @@
-import { mockMeetingUpload } from '../mocks/meetingUpload';
-import { authorizedFetch } from './client';
+import { loadToken } from '../auth/tokenStorage';
+import { mockMeetingUpload, MockUploadOptions, MockUploadProgress } from '../mocks/meetingUpload';
 
 export type MeetingUploadErrorReason =
   | 'network'
@@ -21,49 +21,116 @@ interface UploadResponse {
   meetingId?: unknown;
 }
 
+export type UploadProgress = MockUploadProgress;
+
+export interface UploadOptions extends MockUploadOptions {}
+
 function extractMeetingId(payload: UploadResponse): string | null {
   const candidate = payload.meeting_id ?? payload.meetingId;
   return typeof candidate === 'string' && candidate.trim() ? candidate : null;
 }
 
-async function requestUpload(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
+function withProgressCallback(
+  file: File,
+  options: UploadOptions | undefined,
+  progress: MockUploadProgress
+) {
+  if (!options?.onProgress) {
+    return;
+  }
 
-  const response = await authorizedFetch('/api/meeting/upload', {
-    method: 'POST',
-    body: formData,
+  const total = progress.total ?? (file.size || undefined);
+  const percent =
+    progress.percent !== null
+      ? Math.max(0, Math.min(100, progress.percent))
+      : null;
+
+  options.onProgress({
+    loaded: progress.loaded,
+    total,
+    percent,
   });
+}
 
-  if (response.status === 401 || response.status === 403) {
-    throw new MeetingUploadError('unauthorized');
-  }
+async function requestUpload(file: File, options?: UploadOptions): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/meeting/upload');
 
-  if (!response.ok) {
-    throw new MeetingUploadError('network');
-  }
+    const token = loadToken();
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
 
-  let payload: UploadResponse;
-  try {
-    payload = (await response.json()) as UploadResponse;
-  } catch (error) {
-    throw new MeetingUploadError('invalidResponse', (error as Error).message);
-  }
+    xhr.upload.onprogress = (event) => {
+      withProgressCallback(file, options, {
+        loaded: event.loaded,
+        total: event.lengthComputable ? event.total : undefined,
+        percent: event.lengthComputable
+          ? Math.round((event.loaded / event.total) * 100)
+          : null,
+      });
+    };
 
-  const meetingId = extractMeetingId(payload);
-  if (!meetingId) {
-    throw new MeetingUploadError('missingMeetingId');
-  }
+    xhr.onerror = () => {
+      reject(new MeetingUploadError('network'));
+    };
 
-  return meetingId;
+    xhr.ontimeout = () => {
+      reject(new MeetingUploadError('network'));
+    };
+
+    xhr.onabort = () => {
+      reject(new MeetingUploadError('network'));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 401 || xhr.status === 403) {
+        reject(new MeetingUploadError('unauthorized'));
+        return;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new MeetingUploadError('network'));
+        return;
+      }
+
+      const responseText = xhr.responseText ?? '';
+      let payload: UploadResponse;
+      try {
+        payload = responseText ? (JSON.parse(responseText) as UploadResponse) : {};
+      } catch (error) {
+        reject(new MeetingUploadError('invalidResponse', (error as Error).message));
+        return;
+      }
+
+      const meetingId = extractMeetingId(payload);
+      if (!meetingId) {
+        reject(new MeetingUploadError('missingMeetingId'));
+        return;
+      }
+
+      withProgressCallback(file, options, {
+        loaded: file.size,
+        total: file.size || undefined,
+        percent: file.size ? 100 : null,
+      });
+
+      resolve(meetingId);
+    };
+
+    const formData = new FormData();
+    formData.append('file', file);
+    xhr.send(formData);
+  });
 }
 
 const shouldUseMock = import.meta.env.VITE_USE_UPLOAD_MOCK === 'true';
 
-export async function uploadMeetingAudio(file: File): Promise<string> {
+export async function uploadMeetingAudio(file: File, options?: UploadOptions): Promise<string> {
   if (shouldUseMock) {
-    return mockMeetingUpload(file);
+    return mockMeetingUpload(file, options);
   }
 
-  return requestUpload(file);
+  return requestUpload(file, options);
 }
