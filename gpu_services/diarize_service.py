@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 import time
 from concurrent import futures
 from dataclasses import dataclass
@@ -138,10 +139,13 @@ class DiarizeService(DiarizeServicer):
     def __init__(self) -> None:
         """Initialise the service and validate that diarization resources exist."""
         self._artifacts: NemoModelArtifacts | None = None
+        self._diarizer: _Diarizer | None = None
+        self._diarizer_lock = threading.Lock()
         self._initialisation_error: str | None = None
 
         try:
-            self._artifacts = ensure_nemo_artifacts_available()
+            artifacts = ensure_nemo_artifacts_available()
+            self._artifacts = artifacts
         except DiarizationDependencyError as exc:
             message = (
                 'Required diarization dependencies are missing. '
@@ -154,6 +158,33 @@ class DiarizeService(DiarizeServicer):
             message = f'Diarization resources are not available: {exc}'
             LOGGER.error(message)
             self._initialisation_error = message
+        else:
+            try:
+                loaded_diarizer = cast(
+                    '_Diarizer',
+                    load_nemo_diarization_pipeline(artifacts),
+                )
+            except (DiarizationDependencyError, DiarizationResourceError) as exc:
+                message = f'Failed to load NeMo diarization pipeline: {exc}'
+                LOGGER.error(message)
+                self._initialisation_error = message
+                LOGGER.debug('NeMo diarization initialisation error details', exc_info=exc)
+            except (
+                ImportError,
+                AttributeError,
+                FileNotFoundError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+                OSError,
+            ) as exc:  # pragma: no cover - defensive guard for runtime errors
+                message = 'Failed to load NeMo diarization pipeline due to an unexpected error'
+                LOGGER.error(message)
+                self._initialisation_error = f'{message}: {exc}'
+                LOGGER.debug('Unexpected diarization initialisation error details', exc_info=exc)
+            else:
+                self._diarizer = loaded_diarizer
+                LOGGER.info('NeMo diarization pipeline successfully initialised')
 
     def run(
         self,
@@ -273,19 +304,20 @@ class DiarizeService(DiarizeServicer):
 
     def _run_diarization_pipeline(self, audio_path: Path) -> list[_SegmentResult]:
         """Execute the configured diarization backend for the provided audio file."""
-        if self._artifacts is None:
-            message = 'Diarization artifacts are not available'
+        diarizer = self._diarizer
+        if diarizer is None:
+            message = 'Diarization pipeline is not initialised'
             raise DiarizationResourceError(message)
 
-        return _run_nemo_diarization(audio_path, self._artifacts)
+        with self._diarizer_lock:
+            return _run_nemo_diarization(audio_path, diarizer)
 
 
 def _run_nemo_diarization(
     audio_path: Path,
-    artifacts: NemoModelArtifacts,
+    diarizer: _Diarizer,
 ) -> list[_SegmentResult]:
     """Perform diarization using the NVIDIA NeMo reference pipeline."""
-    diarizer = cast('_Diarizer', load_nemo_diarization_pipeline(artifacts))
     omegaconf = cast('_OmegaModule', importlib.import_module('omegaconf'))
 
     with tempfile.TemporaryDirectory(prefix='diarize_service_') as tmp_dir:
