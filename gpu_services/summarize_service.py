@@ -87,10 +87,12 @@ class SummarizerSettings:
     @classmethod
     def from_env(cls) -> SummarizerSettings:
         """Load summarizer configuration from environment variables."""
-        api_base = os.getenv('LLM_API_BASE', '').strip()
-        if not api_base:
+        api_base_raw = os.getenv('LLM_API_BASE', '').strip()
+        if not api_base_raw:
             message = 'LLM_API_BASE must be configured for the summarization service'
             raise RuntimeError(message)
+
+        api_base = cls._normalize_api_base(api_base_raw)
 
         api_key = os.getenv('LLM_API_KEY', '').strip()
         if not api_key:
@@ -128,6 +130,13 @@ class SummarizerSettings:
             timeout_seconds=timeout_seconds,
             system_prompt=system_prompt,
         )
+
+    @staticmethod
+    def _normalize_api_base(api_base: str) -> str:
+        """Ensure the LLM API base URL retains trailing path segments."""
+        if api_base.endswith('/'):
+            return api_base
+        return f'{api_base}/'
 
 
 class SummarizeService(SummarizeServicer):
