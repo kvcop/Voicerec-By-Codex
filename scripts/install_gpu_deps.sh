@@ -34,8 +34,14 @@ fi
 
 uv pip install --python "$PYTHON_BIN" \
   "transformers>=4.48.0" \
-  "openai-whisper>=20240918"
+  "openai-whisper>=20240918" \
+  "nemo_toolkit[asr]>=1.25.0" \
+  "omegaconf>=2.3.0" \
+  "onnxruntime>=1.18.0" \
+  "soundfile>=0.12.1"
 
 echo "GPU ASR dependencies installed in $VENV_DIR"
 echo "To activate the environment run: source $VENV_DIR/bin/activate"
 echo "Whisper weights (large-v2) will be downloaded automatically on first use."
+echo "NeMo diarization dependencies installed. Download the diarization checkpoints"
+echo "into gpu_services/models/ (see README in that directory)."

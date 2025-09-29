@@ -1,0 +1,4 @@
+# Ignore actual diarization artifacts – they are large and downloaded separately.
+*
+!/.gitignore
+!/README.md
