@@ -167,4 +167,4 @@ async def test_meeting_stream_allows_authorized_request(
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert response.json() == {'detail': 'Meeting nonexistent not found'}
+    assert response.json() == {'detail': 'Meeting not found'}
