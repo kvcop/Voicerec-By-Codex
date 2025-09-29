@@ -4,6 +4,7 @@ import Dialog from '../Dialog';
 import TranscriptStream from '../TranscriptStream';
 import UploadForm from '../UploadForm';
 import LoginForm from '../LoginForm';
+import RegisterForm from '../RegisterForm';
 import { useAuth } from '../AuthProvider';
 import styles from './styles.module.css';
 
@@ -11,14 +12,29 @@ export function App() {
   const t = useTranslations();
   const { isAuthenticated, logout } = useAuth();
   const [meetingId, setMeetingId] = React.useState<string | null>(null);
+  const [authView, setAuthView] = React.useState<'login' | 'register'>('login');
 
   const handleMeetingReady = React.useCallback((id: string) => {
     setMeetingId(id);
   }, []);
 
+  const handleShowLogin = React.useCallback(() => {
+    setAuthView('login');
+  }, []);
+
+  const handleShowRegister = React.useCallback(() => {
+    setAuthView('register');
+  }, []);
+
   React.useEffect(() => {
     if (!isAuthenticated) {
       setMeetingId(null);
+    }
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      setAuthView('login');
     }
   }, [isAuthenticated]);
 
@@ -48,8 +64,10 @@ export function App() {
               </section>
             )}
           </>
+        ) : authView === 'login' ? (
+          <LoginForm className={styles.login} onRequestRegister={handleShowRegister} />
         ) : (
-          <LoginForm className={styles.login} />
+          <RegisterForm className={styles.login} onRequestLogin={handleShowLogin} />
         )}
       </div>
     </div>

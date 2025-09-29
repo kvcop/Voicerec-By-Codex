@@ -76,6 +76,18 @@ exports[`App snapshot > matches the initial render snapshot 1`] = `
             Log in
           </button>
         </form>
+        <p
+          class="_helper_e242dd"
+        >
+          Don't have an account?
+           
+          <button
+            class="_linkButton_e242dd"
+            type="button"
+          >
+            Create one
+          </button>
+        </p>
       </section>
     </div>
   </div>

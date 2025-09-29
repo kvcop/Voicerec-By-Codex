@@ -56,3 +56,39 @@ export async function login(credentials: LoginCredentials): Promise<string> {
 
   return token;
 }
+
+export interface RegistrationPayload {
+  email: string;
+  password: string;
+}
+
+type RegisterErrorReason = 'network' | 'validation';
+
+export class RegisterError extends Error {
+  public readonly reason: RegisterErrorReason;
+
+  constructor(reason: RegisterErrorReason, message?: string) {
+    super(message ?? reason);
+    this.reason = reason;
+  }
+}
+
+const REGISTRATION_VALIDATION_STATUSES = new Set([400, 409, 422]);
+
+export async function register(payload: RegistrationPayload): Promise<void> {
+  const response = await fetch('/auth/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (REGISTRATION_VALIDATION_STATUSES.has(response.status)) {
+    throw new RegisterError('validation');
+  }
+
+  if (!response.ok) {
+    throw new RegisterError('network');
+  }
+}
