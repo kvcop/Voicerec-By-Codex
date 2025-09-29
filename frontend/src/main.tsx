@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './components/App';
+import { AuthProvider } from './components/AuthProvider';
 import { TranslationProvider, isSupportedLocale, Locale } from './i18n';
 
 function getInitialLocale(): Locale {
@@ -38,12 +39,14 @@ export function Root() {
   }, []);
 
   return (
-    <TranslationProvider locale={locale} onLocaleChange={setLocale}>
-      <button onClick={switchLang} data-testid="switch">
-        {locale === 'en' ? 'RU' : 'EN'}
-      </button>
-      <App />
-    </TranslationProvider>
+    <AuthProvider>
+      <TranslationProvider locale={locale} onLocaleChange={setLocale}>
+        <button onClick={switchLang} data-testid="switch">
+          {locale === 'en' ? 'RU' : 'EN'}
+        </button>
+        <App />
+      </TranslationProvider>
+    </AuthProvider>
   );
 }
 

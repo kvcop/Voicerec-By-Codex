@@ -1,6 +1,11 @@
 import { mockMeetingUpload } from '../mocks/meetingUpload';
+import { authorizedFetch } from './client';
 
-export type MeetingUploadErrorReason = 'network' | 'invalidResponse' | 'missingMeetingId';
+export type MeetingUploadErrorReason =
+  | 'network'
+  | 'invalidResponse'
+  | 'missingMeetingId'
+  | 'unauthorized';
 
 export class MeetingUploadError extends Error {
   public readonly reason: MeetingUploadErrorReason;
@@ -25,10 +30,14 @@ async function requestUpload(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch('/api/meeting/upload', {
+  const response = await authorizedFetch('/api/meeting/upload', {
     method: 'POST',
     body: formData,
   });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new MeetingUploadError('unauthorized');
+  }
 
   if (!response.ok) {
     throw new MeetingUploadError('network');
