@@ -19,6 +19,7 @@ uv.lock
 .DS_Store
 backend/tests/__pycache__/
 backend/uv.lock
+.asr_service.log
 
 # Data artifacts
 data/raw/
