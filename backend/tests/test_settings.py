@@ -53,6 +53,7 @@ def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('DATABASE_URL', 'postgresql://example')
     monkeypatch.setenv('GPU_GRPC_HOST', 'host')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
+    monkeypatch.setenv('AUTH_SECRET_KEY', 'settings-secret-key')
 
     module = _reload_settings_module()
 
@@ -93,6 +94,7 @@ def test_raw_audio_dir_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('GPU_GRPC_HOST', 'host')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
     monkeypatch.delenv('RAW_AUDIO_DIR', raising=False)
+    monkeypatch.setenv('AUTH_SECRET_KEY', 'settings-secret-key')
 
     module = _reload_settings_module()
 
@@ -107,6 +109,7 @@ def test_raw_audio_dir_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setenv('GPU_GRPC_HOST', 'host')
     monkeypatch.setenv('GPU_GRPC_PORT', '1234')
     monkeypatch.setenv('RAW_AUDIO_DIR', str(tmp_path))
+    monkeypatch.setenv('AUTH_SECRET_KEY', 'settings-secret-key')
 
     module = _reload_settings_module()
 

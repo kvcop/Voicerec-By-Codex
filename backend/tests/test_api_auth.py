@@ -6,11 +6,14 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.security import hash_password, verify_password
+from app.core.settings import get_settings
 from app.db.repositories.user import UserRepository
+from app.services.auth import AUTH_SCHEME_BEARER
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -68,3 +71,55 @@ async def test_register_user_validates_password_length(fastapi_app: FastAPI) -> 
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_login_user_returns_jwt(
+    fastapi_app: FastAPI, fastapi_db_session: AsyncSession
+) -> None:
+    """Valid credentials yield a signed JWT access token."""
+    repository = UserRepository(fastapi_db_session)
+    plaintext = 'SuperSecure123'
+    user = await repository.create(
+        email='auth@example.com', hashed_password=hash_password(plaintext)
+    )
+    await fastapi_db_session.commit()
+
+    client = TestClient(fastapi_app)
+    response = client.post(
+        '/auth/login',
+        json={'email': user.email, 'password': plaintext},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload['token_type'] == AUTH_SCHEME_BEARER
+
+    settings = get_settings()
+    decoded = jwt.decode(
+        payload['access_token'],
+        settings.auth_secret_key,
+        algorithms=[settings.auth_token_algorithm],
+    )
+    assert decoded['sub'] == str(user.id)
+    assert decoded['email'] == user.email
+
+
+@pytest.mark.asyncio
+async def test_login_user_rejects_invalid_credentials(
+    fastapi_app: FastAPI, fastapi_db_session: AsyncSession
+) -> None:
+    """Incorrect password produces a 401 response."""
+    repository = UserRepository(fastapi_db_session)
+    email = 'wrongpass@example.com'
+    await repository.create(email=email, hashed_password=hash_password('CorrectPass123'))
+    await fastapi_db_session.commit()
+
+    client = TestClient(fastapi_app)
+    response = client.post(
+        '/auth/login',
+        json={'email': email, 'password': 'IncorrectPass456'},
+    )
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {'detail': 'Invalid email or password'}
