@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
+import { AuthProvider } from '../AuthProvider';
 import TranscriptStream, { EventSourceFactory } from './index';
 
 type GenericListener = (payload: unknown) => void;
@@ -76,9 +77,11 @@ function renderWithIntl(ui: React.ReactElement, locale: Locale = 'en') {
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentLocale, setCurrentLocale] = React.useState<Locale>(locale);
     return (
-      <TranslationProvider locale={currentLocale} onLocaleChange={setCurrentLocale}>
-        {children}
-      </TranslationProvider>
+      <AuthProvider>
+        <TranslationProvider locale={currentLocale} onLocaleChange={setCurrentLocale}>
+          {children}
+        </TranslationProvider>
+      </AuthProvider>
     );
   };
 

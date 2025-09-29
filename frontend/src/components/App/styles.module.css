@@ -23,7 +23,32 @@
   max-width: 720px;
 }
 
+.authActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logoutButton {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(31, 41, 55, 0.85);
+  color: #f9fafb;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.logoutButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(31, 41, 55, 0.2);
+}
+
 .upload {
+  width: 100%;
+}
+
+.login {
   width: 100%;
 }
 

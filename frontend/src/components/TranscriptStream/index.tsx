@@ -1,6 +1,7 @@
 /* global EventSource */
 import React from 'react';
 import { useTranslations } from '../../i18n';
+import { useAuth } from '../AuthProvider';
 import styles from './styles.module.css';
 
 type ConnectionState = 'connecting' | 'open' | 'error' | 'unsupported';
@@ -106,11 +107,22 @@ export default function TranscriptStream({
   eventSourceFactory,
 }: TranscriptStreamProps) {
   const t = useTranslations();
+  const { token } = useAuth();
   const [connectionState, setConnectionState] = React.useState<ConnectionState>(() =>
     isEventSourceSupported() ? 'connecting' : 'unsupported'
   );
   const [transcriptChunks, setTranscriptChunks] = React.useState<TranscriptChunk[]>([]);
   const [summary, setSummary] = React.useState<string | null>(null);
+
+  const streamUrl = React.useMemo(() => {
+    const baseUrl = `/api/meeting/${meetingId}/stream`;
+    if (!token) {
+      return baseUrl;
+    }
+
+    const encodedToken = encodeURIComponent(token);
+    return `${baseUrl}?token=${encodedToken}`;
+  }, [meetingId, token]);
 
   React.useEffect(() => {
     const factory = eventSourceFactory ?? resolveDefaultFactory();
@@ -126,7 +138,7 @@ export default function TranscriptStream({
     setTranscriptChunks([]);
     setSummary(null);
 
-    const source = factory(`/api/meeting/${meetingId}/stream`);
+    const source = factory(streamUrl);
     let isActive = true;
 
     const handleOpen = () => {
@@ -190,7 +202,7 @@ export default function TranscriptStream({
       source.onerror = null;
       source.close();
     };
-  }, [meetingId, eventSourceFactory]);
+  }, [streamUrl, eventSourceFactory]);
 
   const statusLabel = React.useMemo(() => {
     switch (connectionState) {

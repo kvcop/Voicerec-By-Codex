@@ -29,61 +29,53 @@ exports[`App snapshot > matches the initial render snapshot 1`] = `
         Open Dialog
       </button>
       <section
-        class="_container_a6f314 _upload_f2db1c"
+        class="_container_e242dd _login_f2db1c"
       >
         <h2
-          class="_title_a6f314"
+          class="_title_e242dd"
         >
-          Upload meeting audio
+          Log in to Voicerec
         </h2>
-        <p
-          class="_description_a6f314"
-        >
-          Send a WAV recording to start real-time transcription.
-        </p>
         <form
-          class="_form_a6f314"
+          class="_form_e242dd"
         >
           <label
-            class="_fileLabel_a6f314"
-            for="meeting-audio"
+            class="_label_e242dd"
+            for="email"
           >
-            <span>
-              Choose WAV file
-            </span>
-            <input
-              accept="audio/wav"
-              id="meeting-audio"
-              name="meeting-audio"
-              type="file"
-            />
+            Email
           </label>
-          <span
-            class="_fileName_a6f314"
+          <input
+            autocomplete="email"
+            class="_input_e242dd"
+            id="email"
+            name="email"
+            required=""
+            type="email"
+            value=""
+          />
+          <label
+            class="_label_e242dd"
+            for="password"
           >
-            No file selected yet
-          </span>
+            Password
+          </label>
+          <input
+            autocomplete="current-password"
+            class="_input_e242dd"
+            id="password"
+            name="password"
+            required=""
+            type="password"
+            value=""
+          />
           <button
-            class="_submit_a6f314"
+            class="_submit_e242dd"
             type="submit"
           >
-            Upload
+            Log in
           </button>
         </form>
-      </section>
-      <section
-        class="_streamPlaceholder_f2db1c"
-      >
-        <h2
-          class="_streamPlaceholderTitle_f2db1c"
-        >
-          Live transcript
-        </h2>
-        <p
-          class="_streamPlaceholderText_f2db1c"
-        >
-          Upload a meeting audio file to start streaming updates.
-        </p>
       </section>
     </div>
   </div>
