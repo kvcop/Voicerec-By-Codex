@@ -4,6 +4,7 @@ import asyncio
 import json
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
@@ -219,6 +220,50 @@ async def test_upload(
     assert stored_meeting is not None
     assert stored_meeting.user_id == user.id
     assert stored_meeting.filename == 'audio.wav'
+
+
+@pytest.mark.asyncio
+async def test_list_meetings_returns_meeting_history(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """Listing meetings returns user's meetings ordered by creation time."""
+    client = TestClient(fastapi_app)
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+
+    older = await repository.create(user_id=user.id, filename='first.wav')
+    newer = await repository.create(user_id=user.id, filename='second.wav')
+
+    long_summary = ' '.join(['summary'] * 40)
+    short_summary = 'Concise meeting overview.'
+    older.summary = short_summary
+    newer.summary = long_summary
+    older.created_at = older.created_at - timedelta(hours=1)
+
+    await fastapi_db_session.flush()
+    await fastapi_db_session.commit()
+
+    response = client.get('/api/meeting', headers=headers)
+
+    assert response.status_code == HTTPStatus.OK, response.json()
+    payload = response.json()
+    assert [item['id'] for item in payload] == [str(newer.id), str(older.id)]
+    assert payload[0]['filename'] == 'second.wav'
+    assert payload[0]['status'] == MeetingStatus.PENDING.value
+    assert payload[1]['summary'] == short_summary
+
+    long_snippet = payload[0]['summary']
+    assert long_snippet.endswith('…')
+    assert len(long_snippet) <= meeting.SUMMARY_SNIPPET_MAX_LENGTH
+
+
+def test_list_meetings_requires_auth(fastapi_app: 'FastAPI') -> None:
+    """Requests without credentials are rejected."""
+    client = TestClient(fastapi_app)
+    response = client.get('/api/meeting')
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED, response.json()
 
 
 @pytest.mark.asyncio
