@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import json
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -14,7 +15,7 @@ from uuid import UUID
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_serializer
 
 from app.api.dependencies import get_current_user
 from app.db.repositories import MeetingRepository, TranscriptRepository
@@ -44,12 +45,55 @@ router = APIRouter(prefix='/api/meeting')
 legacy_router = APIRouter()
 
 CHUNK_SIZE = 1024 * 1024
+SUMMARY_SNIPPET_MAX_LENGTH = 160
 ALLOWED_WAV_MIME_TYPES = {
     'audio/wav',
     'audio/x-wav',
     'audio/vnd.wave',
     'audio/wave',
 }
+
+
+class MeetingSummaryResponse(BaseModel):
+    """Serialized representation of a meeting for list views."""
+
+    id: str = Field(description='Unique identifier of the meeting')
+    filename: str = Field(description='Original name of the uploaded audio file')
+    created_at: dt.datetime = Field(description='Timestamp when the meeting was created')
+    status: MeetingStatus = Field(description='Current processing status of the meeting')
+    summary: str | None = Field(
+        default=None, description='Short summary snippet of the meeting if available'
+    )
+
+    @classmethod
+    def from_model(cls, meeting: Meeting) -> MeetingSummaryResponse:
+        """Create response object from a ``Meeting`` ORM instance."""
+        return cls(
+            id=str(meeting.id),
+            filename=meeting.filename,
+            created_at=meeting.created_at,
+            status=meeting.status,
+            summary=_build_summary_snippet(meeting.summary),
+        )
+
+    @field_serializer('created_at')
+    def _serialize_created_at(self, value: dt.datetime) -> str:
+        """Serialize ``created_at`` timestamps to ISO-8601 strings."""
+        if not isinstance(value, dt.datetime):
+            message = 'created_at must be a datetime instance'
+            raise TypeError(message)
+        return value.isoformat()
+
+
+def _build_summary_snippet(summary: str | None) -> str | None:
+    """Return shortened summary text capped at ``SUMMARY_SNIPPET_MAX_LENGTH`` characters."""
+    if summary is None:
+        return None
+    snippet = summary.strip()
+    if len(snippet) <= SUMMARY_SNIPPET_MAX_LENGTH:
+        return snippet
+    truncated = snippet[: SUMMARY_SNIPPET_MAX_LENGTH - 1].rstrip()
+    return f'{truncated}…'
 
 
 def get_raw_audio_dir() -> Path:
@@ -77,6 +121,17 @@ def _transcript_service_dependency(
     if hasattr(base_service, 'enforce_audio_presence'):
         base_service.enforce_audio_presence()
     return base_service
+
+
+@router.get('', response_model=list[MeetingSummaryResponse])
+async def list_meetings(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[MeetingSummaryResponse]:
+    """Return meetings that belong to the authenticated user."""
+    repository = MeetingRepository(session)
+    meetings = await repository.list_by_user(current_user.id)
+    return [MeetingSummaryResponse.from_model(item) for item in meetings]
 
 
 class TranscriptSegmentResponse(BaseModel):
