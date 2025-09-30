@@ -13,6 +13,10 @@ The `gpu_services.diarization_resources` module assumes the following files are 
 
 Place the actual NeMo artifacts in this folder (or update the environment variables described below to point elsewhere). The repository deliberately keeps only documentation files under version control—real model weights are large and should be fetched manually, for example via the [NeMo model registry](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/nemo/models).
 
+Run [`scripts/download_diarization_assets.sh`](../../scripts/download_diarization_assets.sh) to download the CPU-compatible checkpoints listed above. The helper verifies SHA-256 checksums for the VAD and speaker models and can skip the MSDD model by setting `SKIP_MSDD=1` (useful when NVIDIA NGC access is unavailable).
+
+The default [`diar_inference.yaml`](diar_inference.yaml) is tuned for CPU execution: it forces `device: cpu`, lowers batch sizes, and disables embedding/MSDD artifact persistence to keep the smoke tests lightweight.
+
 ## Environment variables
 
 The loader honours the following overrides:

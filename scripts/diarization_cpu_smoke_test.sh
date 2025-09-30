@@ -58,6 +58,7 @@ if [ -n "$MISSING_ARTIFACTS" ]; then
   echo "Missing diarization artifacts:" >&2
   echo "$MISSING_ARTIFACTS" >&2
   echo "Download the NeMo checkpoints listed above into the gpu_services/models/ directory." >&2
+  echo "You can run scripts/download_diarization_assets.sh to fetch the CPU-friendly defaults." >&2
   exit 1
 fi
 

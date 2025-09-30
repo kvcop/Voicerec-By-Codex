@@ -1,0 +1,60 @@
+name: "NeMoDiarizer_CPU"
+
+sample_rate: 16000
+batch_size: 1
+
+segment: null
+num_workers: 0
+
+manifest_filepath: null
+out_dir: null
+
+vad:
+  model_path: vad_multilingual_marblenet
+  parameters:
+    model_path: vad_multilingual_marblenet
+    window_length_in_sec: 0.5
+    shift_length_in_sec: 0.25
+    onset: 0.1
+    offset: 0.1
+    pad_onset: 0.05
+    pad_offset: 0.05
+
+diarizer:
+  manifest_filepath: null
+  out_dir: null
+  collar: 0.25
+  ignore_overlap: true
+  oracle_vad: false
+  device: cpu
+  precision: 32
+  vad:
+    model_path: vad_multilingual_marblenet
+    parameters:
+      model_path: vad_multilingual_marblenet
+      window_length_in_sec: 0.5
+      shift_length_in_sec: 0.25
+      onset: 0.1
+      offset: 0.1
+      pad_onset: 0.05
+      pad_offset: 0.05
+  speaker_embeddings:
+    model_path: titanet_large
+    parameters:
+      save_embeddings: false
+      window_length_in_sec: [1.5, 1.0, 0.5]
+      shift_length_in_sec: [0.75, 0.5, 0.25]
+      multiscale_weights: [1, 1, 1]
+  clustering:
+    parameters:
+      oracle_num_speakers: false
+      max_num_speakers: 5
+      enhanced_count_thres: 80
+      max_rp_threshold: 0.25
+  msdd_model:
+    model_path: diar_msdd_telephonic
+    parameters:
+      use_speaker_model_from_ckpt: true
+      infer_batch_size: 10
+      save_logits: false
+      save_attention: false
