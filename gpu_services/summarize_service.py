@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import logging
 import os
 from concurrent import futures
@@ -175,7 +176,7 @@ class SummarizeService(SummarizeServicer):
             base_url=self._settings.api_base,
             headers={
                 'Authorization': f'Bearer {self._settings.api_key}',
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             },
             timeout=self._settings.timeout_seconds,
         )
@@ -285,8 +286,12 @@ class SummarizeService(SummarizeServicer):
         context: ServicerContext,
     ) -> dict[str, Any]:
         """Send the payload to the LLM API and return the decoded JSON body."""
+        payload_bytes = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+
+        response: httpx.Response | None = None
+
         try:
-            response = self._client.post('chat/completions', json=payload)
+            response = self._client.post('chat/completions', content=payload_bytes)
             response.raise_for_status()
         except httpx.TimeoutException as exc:
             LOGGER.error('LLM API request timed out: %s', exc)
@@ -300,8 +305,18 @@ class SummarizeService(SummarizeServicer):
         except httpx.RequestError:
             LOGGER.exception('Failed to reach LLM API endpoint')
             context.abort(grpc.StatusCode.UNAVAILABLE, 'Failed to reach LLM API endpoint')
+        except Exception:
+            LOGGER.exception('Unexpected error while executing LLM API request')
+            error_message = 'Unexpected error while executing LLM API request'
+            context.abort(grpc.StatusCode.INTERNAL, error_message)
 
         try:
+            if response is None:  # pragma: no cover - defensive guard
+                error_message = 'LLM API response was not initialised'
+                raise RuntimeError(error_message)
+
+            if response.encoding is None:
+                response.encoding = 'utf-8'
             payload_data = response.json()
         except ValueError as exc:
             LOGGER.error('Failed to decode LLM API response as JSON: %s', exc)
