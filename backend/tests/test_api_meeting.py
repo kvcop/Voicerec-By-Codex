@@ -1,29 +1,33 @@
 """Tests for meeting API endpoints."""
 
 import asyncio
-from collections.abc import AsyncGenerator, Callable, Iterator
-from contextlib import contextmanager
+import json
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, NoReturn, Self, cast
+from typing import TYPE_CHECKING, Annotated, NoReturn, Self, cast
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import UploadFile
+from fastapi import Depends, UploadFile
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import meeting
 from app.core.security import create_access_token, hash_password
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
-from app.db.repositories import MeetingRepository
+from app.db.repositories import MeetingRepository, TranscriptRepository
 from app.db.repositories.user import UserRepository
+from app.db.session import get_session
 from app.models.meeting import MeetingStatus
 from app.services.auth import AUTH_SCHEME_BEARER
+from app.services.meeting_processing import MeetingEvent, MeetingProcessingResult
 from app.services.transcript import (
+    MeetingNotFoundError,
     TranscriptService,
     get_transcript_service,
     resolve_raw_audio_dir,
@@ -41,6 +45,46 @@ AUTH_HEADER_NAME = 'Authorization'
 BEARER_PREFIX = AUTH_SCHEME_BEARER.capitalize()
 
 
+class _RecordingProcessor:
+    """Return a predetermined processing result while tracking invocations."""
+
+    def __init__(self, result: MeetingProcessingResult) -> None:
+        self._result = result
+        self.calls: list[Path] = []
+
+    async def process(self, audio_path: Path) -> MeetingProcessingResult:
+        self.calls.append(Path(audio_path))
+        return self._result
+
+
+class _TestTranscriptService(TranscriptService):
+    """Test-friendly transcript service that resets session transactions."""
+
+    async def _persist_processing_result(
+        self, meeting_uuid: UUID, result: MeetingProcessingResult
+    ) -> None:
+        await self.session.rollback()
+        repository = MeetingRepository(self.session)
+        transcript_repository = TranscriptRepository(self.session)
+
+        async with self.session.begin():
+            meeting = await repository.get_by_id(meeting_uuid)
+            if meeting is None:
+                raise MeetingNotFoundError(str(meeting_uuid))
+            await self._delete_existing_transcripts(meeting_uuid)
+            await self._store_transcript_events(
+                meeting,
+                meeting_uuid,
+                result,
+                transcript_repository,
+            )
+            await repository.update(
+                meeting,
+                status=MeetingStatus.COMPLETED,
+                summary=self._normalize_summary(result.summary),
+            )
+
+
 @contextmanager
 def _override_dependencies(app: 'FastAPI', overrides: OverrideMap) -> Iterator[None]:
     """Temporarily apply dependency overrides for the FastAPI app."""
@@ -50,6 +94,37 @@ def _override_dependencies(app: 'FastAPI', overrides: OverrideMap) -> Iterator[N
     finally:
         for dependency in overrides:
             app.dependency_overrides.pop(dependency, None)
+
+
+@asynccontextmanager
+async def _override_transcript_dependencies(
+    app: 'FastAPI',
+    raw_audio_dir: Path,
+    processor: object,
+) -> AsyncIterator[None]:
+    """Apply overrides for transcript service and ensure cleanup."""
+
+    def _build_service(
+        session: Annotated[AsyncSession, Depends(get_session)],
+        client_type: str | None = None,
+        gpu_settings: object | None = None,
+        raw_audio_dir_override: Path | None = None,
+        enforce_audio_presence: bool | None = None,
+    ) -> TranscriptService:
+        del client_type, gpu_settings, enforce_audio_presence
+        directory = raw_audio_dir if raw_audio_dir_override is None else raw_audio_dir_override
+        return _TestTranscriptService(
+            session,
+            cast('MeetingProcessingService', processor),
+            raw_audio_dir=directory,
+        )
+
+    overrides: OverrideMap = {
+        meeting.get_raw_audio_dir: lambda: raw_audio_dir,
+        meeting.get_transcript_service: _build_service,
+    }
+    with _override_dependencies(app, overrides):
+        yield None
 
 
 async def _build_auth_headers(session: AsyncSession) -> tuple[dict[str, str], 'User']:
@@ -489,6 +564,91 @@ async def test_stream_stops_after_idle_timeout(
 
     assert lines
     assert all(line == ': heartbeat' for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_upload_and_stream_persists_transcripts(
+    tmp_path: Path,
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """End-to-end flow stores transcripts and marks the meeting completed."""
+    events: list[MeetingEvent] = [
+        {
+            'speaker': 'A',
+            'text': 'Hello',
+            'confidence': 0.93,
+            'summary_fragment': 'Greeting',
+            'start': 0.0,
+        },
+        {
+            'speaker': 'B',
+            'text': 'World',
+            'confidence': 0.88,
+            'summary_fragment': 'Response',
+            'start': 2.5,
+        },
+    ]
+    result = MeetingProcessingResult(events=events, summary='Session summary')
+    processor = _RecordingProcessor(result)
+
+    raw_audio_dir = tmp_path / 'audio'
+    raw_audio_dir.mkdir()
+
+    client = TestClient(fastapi_app)
+    headers, _ = await _build_auth_headers(fastapi_db_session)
+
+    meeting_id = ''
+    payload_lines: list[str] = []
+    async with _override_transcript_dependencies(fastapi_app, raw_audio_dir, processor):
+        upload_response = client.post(
+            '/api/meeting/upload',
+            files={'file': ('audio.wav', b'hello world', 'audio/wav')},
+            headers=headers,
+        )
+
+        assert upload_response.status_code == HTTPStatus.OK, upload_response.json()
+        meeting_id = upload_response.json()['meeting_id']
+
+        with client.stream(
+            'GET', f'/api/meeting/{meeting_id}/stream', headers=headers
+        ) as stream_response:
+            assert stream_response.status_code == HTTPStatus.OK, stream_response.status_code
+            payload_lines = [line for line in stream_response.iter_lines() if line]
+
+    audio_path = raw_audio_dir / f'{meeting_id}.wav'
+    assert processor.calls == [audio_path]
+
+    assert payload_lines
+    assert len(payload_lines) % 2 == 0
+    events_streamed: list[tuple[str, dict[str, object]]] = []
+    for index in range(0, len(payload_lines), 2):
+        event_line = payload_lines[index]
+        data_line = payload_lines[index + 1]
+        assert event_line.startswith('event: ')
+        assert data_line.startswith('data: ')
+        event_type = event_line.split(': ', 1)[1]
+        data = json.loads(data_line.split(': ', 1)[1])
+        events_streamed.append((event_type, data))
+
+    assert events_streamed == [
+        ('transcript', events[0]),
+        ('transcript', events[1]),
+        ('summary', {'summary': 'Session summary'}),
+    ]
+
+    meeting_repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await meeting_repository.get_by_id(UUID(meeting_id))
+    assert stored_meeting is not None
+    assert stored_meeting.status == MeetingStatus.COMPLETED
+    assert stored_meeting.summary == 'Session summary'
+
+    transcript_repository = TranscriptRepository(fastapi_db_session)
+    transcripts = await transcript_repository.list_by_meeting(UUID(meeting_id))
+    assert [fragment.text for fragment in transcripts] == ['Hello', 'World']
+    assert [fragment.speaker_id for fragment in transcripts] == ['A', 'B']
+    assert transcripts[0].timestamp is not None
+    assert transcripts[0].timestamp < transcripts[1].timestamp
 
 
 @pytest.mark.asyncio
