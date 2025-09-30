@@ -21,8 +21,6 @@ backend/tests/__pycache__/
 backend/uv.lock
 .asr_service.log
 .diarize_service.log
-gpu_services/models/*.nemo
-gpu_services/models/checksums.sha256
 
 # Data artifacts
 data/raw/
