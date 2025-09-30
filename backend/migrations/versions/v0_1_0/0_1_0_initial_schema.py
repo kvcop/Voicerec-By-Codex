@@ -9,7 +9,7 @@ from app.models._types import GUID
 from app.models.meeting import MeetingStatus
 
 # revision identifiers, used by Alembic.
-revision = 'a_initial_schema'
+revision = '0.1.0_initial'
 down_revision = None
 branch_labels = None
 depends_on = None

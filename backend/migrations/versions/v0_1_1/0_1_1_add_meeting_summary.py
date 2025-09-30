@@ -6,8 +6,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'b_add_meeting_summary'
-down_revision = 'a_initial_schema'
+revision = 'v0_1_1_add_meeting_summary'
+down_revision = '0.1.0_initial'
 branch_labels = None
 depends_on = None
 
