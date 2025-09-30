@@ -16,3 +16,6 @@
 3. **Deep research (G2_4 live diarization verification)**
    Please run the deep research model to outline a step-by-step plan for enabling reliable live testing of the diarization service, including staging environment requirements, automated test coverage, telemetry checkpoints, and risk mitigation for production rollout.
    Ответ: подробный план опубликован в [`docs/researches/g2_4_research.md`](docs/researches/g2_4_research.md). Дополнительных запросов не требуется.
+
+4. **Артефакты NeMo для диаризации (smoke-тест CPU)**
+   После установки зависимостей командой `GPU_CUDA_VARIANT=cpu ./install_deps.sh --gpu` и запуска `./scripts/diarization_cpu_smoke_test.sh` сервис завершается с ошибкой из-за отсутствия файлов `diar_inference.yaml`, `vad_multilingual_marblenet.nemo`, `titanet_large.nemo` и `msdd_telephonic.nemo` в `gpu_services/models/`. Можно ли добавить облегчённый набор весов в репозиторий тестовых данных или предоставить прямые ссылки с командами скачивания, которые не требуют авторизации? Без артефактов smoke-тест не получится автоматизировать.
