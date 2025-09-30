@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict, cast
+from uuid import UUID
 
 if TYPE_CHECKING:  # pragma: no cover - imports for typing only
     from collections.abc import AsyncIterable, AsyncIterator, Iterable, Mapping
@@ -16,10 +18,15 @@ else:  # pragma: no cover - define runtime reference for dependency evaluation
     AsyncSession = _sqlalchemy_asyncio.AsyncSession
 
 from fastapi import Depends
+from sqlalchemy import delete
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.settings import GPUSettings, get_settings
+from app.db.repositories import MeetingRepository, TranscriptRepository
 from app.db.session import get_session
 from app.grpc_client import create_grpc_client
+from app.models.meeting import Meeting, MeetingStatus
+from app.models.transcript import Transcript
 from app.services.meeting_processing import (
     DiarizeClientProtocol,
     MeetingProcessingResult,
@@ -92,8 +99,19 @@ class TranscriptService:
         """
 
         async def iterator() -> AsyncIterator[StreamItem]:
+            meeting_uuid = self._parse_meeting_id(meeting_id)
             audio_path = self._resolve_audio_path(meeting_id)
-            result = await self._meeting_processor.process(audio_path)
+            try:
+                result = await self._meeting_processor.process(audio_path)
+            except Exception:
+                await self._mark_meeting_failed(meeting_uuid)
+                raise
+
+            try:
+                await self._persist_processing_result(meeting_uuid, result)
+            except Exception:
+                await self._mark_meeting_failed(meeting_uuid)
+                raise
 
             for item in self._yield_transcript_events(result):
                 yield item
@@ -134,6 +152,90 @@ class TranscriptService:
     def raw_audio_dir(self) -> Path:
         """Return directory where raw audio files are stored."""
         return self._raw_audio_dir
+
+    def _parse_meeting_id(self, meeting_id: str) -> UUID:
+        """Return UUID constructed from the provided meeting identifier."""
+        try:
+            return UUID(meeting_id)
+        except ValueError as exc:
+            raise MeetingNotFoundError(meeting_id) from exc
+
+    async def _persist_processing_result(
+        self, meeting_uuid: UUID, result: MeetingProcessingResult
+    ) -> None:
+        """Store transcript fragments and final summary in the database."""
+        repository = MeetingRepository(self._session)
+        meeting = await repository.get_by_id(meeting_uuid)
+        if meeting is None:
+            raise MeetingNotFoundError(str(meeting_uuid))
+
+        transcript_repository = TranscriptRepository(self._session)
+
+        async with self._session.begin():
+            await self._delete_existing_transcripts(meeting_uuid)
+            await self._store_transcript_events(
+                meeting,
+                meeting_uuid,
+                result,
+                transcript_repository,
+            )
+            await repository.update(
+                meeting,
+                status=MeetingStatus.COMPLETED,
+                summary=self._normalize_summary(result.summary),
+            )
+
+    async def _store_transcript_events(
+        self,
+        meeting: Meeting,
+        meeting_uuid: UUID,
+        result: MeetingProcessingResult,
+        repository: TranscriptRepository,
+    ) -> None:
+        """Persist transcript events as individual rows."""
+        for event in result.events:
+            speaker = event.get('speaker')
+            text = event.get('text')
+            if not isinstance(speaker, str) or not isinstance(text, str):
+                continue
+            timestamp = self._build_event_timestamp(meeting, event)
+            await repository.create(
+                meeting_id=meeting_uuid,
+                text=text,
+                speaker_id=speaker,
+                timestamp=timestamp,
+            )
+
+    async def _delete_existing_transcripts(self, meeting_uuid: UUID) -> None:
+        """Remove previously stored transcripts for the meeting."""
+        statement = delete(Transcript).where(Transcript.meeting_id == meeting_uuid)
+        await self._session.execute(statement)
+
+    def _build_event_timestamp(self, meeting: Meeting, event: Mapping[str, Any]) -> datetime | None:
+        """Return timestamp for the transcript event when offsets are available."""
+        created_at = meeting.created_at
+        start = event.get('start')
+        if created_at is None or not isinstance(start, (int, float)):
+            return None
+        return created_at + timedelta(seconds=start)
+
+    async def _mark_meeting_failed(self, meeting_uuid: UUID) -> None:
+        """Set meeting status to failed when processing cannot complete."""
+        await self._session.rollback()
+        repository = MeetingRepository(self._session)
+        meeting = await repository.get_by_id(meeting_uuid)
+        if meeting is None:
+            return
+        try:
+            async with self._session.begin():
+                await repository.update(meeting, status=MeetingStatus.FAILED, summary=None)
+        except SQLAlchemyError:
+            await self._session.rollback()
+
+    def _normalize_summary(self, summary: str) -> str | None:
+        """Return a cleaned summary value suitable for persistence."""
+        cleaned = summary.strip()
+        return cleaned or None
 
 
 def resolve_transcribe_fixture_path() -> Path:

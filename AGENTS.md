@@ -27,6 +27,10 @@ These linting and type-checking commands are mandatory for every backend code ch
 
 We are adventurers and do not look for easy ways. Do **not** add ignore directives for `mypy` or `ruff`. If an error cannot be solved, add a question in `QUESTIONS.md`.
 
+## Alembic Migrations
+- Never modify revision identifiers of existing migration files. Historical revisions must keep their original IDs.
+- New migration files must use revision identifiers that include the semantic version (for example, `0.1.2_add_feature`).
+
 ## Dependency Installation
 The `install_deps.sh` script installs Python and Node dependencies on each environment start. It uses `uv` to create the virtual environment and install packages from `backend/pyproject.toml`.
 

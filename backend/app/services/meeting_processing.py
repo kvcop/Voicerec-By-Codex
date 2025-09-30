@@ -6,7 +6,7 @@ import asyncio
 import math
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from collections.abc import Iterable, Iterator
@@ -41,6 +41,8 @@ class MeetingEvent(TypedDict):
     text: str
     confidence: float | None
     summary_fragment: str
+    start: NotRequired[float | None]
+    end: NotRequired[float | None]
 
 
 @dataclass(slots=True)
@@ -98,6 +100,8 @@ class MeetingProcessingService:
                     'text': segment['text'],
                     'confidence': segment['confidence'],
                     'summary_fragment': summary_fragments[index] if summary_fragments else '',
+                    'start': segment['start'],
+                    'end': segment['end'],
                 }
             )
 

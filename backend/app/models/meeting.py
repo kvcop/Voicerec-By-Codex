@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, func, text
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -46,6 +46,7 @@ class Meeting(Base):
         server_default=text(f"'{MeetingStatus.PENDING.value}'"),
         nullable=False,
     )
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped[User] = relationship(back_populates='meetings')
     transcripts: Mapped[list[Transcript]] = relationship(
