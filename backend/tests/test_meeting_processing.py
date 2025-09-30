@@ -79,11 +79,15 @@ async def test_meeting_processing_merges_segments(
             'text': 'Hello',
             'confidence': pytest.approx(0.95),
             'summary_fragment': 'This is a summary.',
+            'start': pytest.approx(0.0),
+            'end': pytest.approx(1.0),
         },
         {
             'speaker': 'B',
             'text': 'World',
             'confidence': pytest.approx(0.75),
             'summary_fragment': '',
+            'start': pytest.approx(1.0),
+            'end': pytest.approx(2.0),
         },
     ]

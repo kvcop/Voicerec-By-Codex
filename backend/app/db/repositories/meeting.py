@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, cast
 
 from sqlalchemy import select
 
@@ -42,18 +42,23 @@ class MeetingRepository(SQLAlchemyRepository[Meeting]):
         result = await self.session.execute(statement)
         return list(result.scalars())
 
+    _UNSET: Final = object()
+
     async def update(
         self,
         meeting: Meeting,
         *,
         filename: str | None = None,
         status: MeetingStatus | None = None,
+        summary: str | None | object = _UNSET,
     ) -> Meeting:
         """Update meeting attributes with provided values."""
         if filename is not None:
             meeting.filename = filename
         if status is not None:
             meeting.status = status
+        if summary is not self._UNSET:
+            meeting.summary = cast('str | None', summary)
         self.session.add(meeting)
         await self.session.flush()
         await self.session.refresh(meeting)

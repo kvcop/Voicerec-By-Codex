@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_RAW_AUDIO_DIR = REPO_ROOT / 'data' / 'raw'
-DEFAULT_DATABASE_SCHEMA_VERSION = '0.1.0'
+DEFAULT_DATABASE_SCHEMA_VERSION = 'b_add_meeting_summary'
 
 
 class GPUSettings(BaseSettings):
