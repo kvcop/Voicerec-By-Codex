@@ -69,6 +69,8 @@ DEFAULT_SYSTEM_PROMPT = (
 DEFAULT_MODEL_NAME = 'qwen-3'
 DEFAULT_TEMPERATURE = 0.25
 DEFAULT_TIMEOUT_SECONDS = 60.0
+DEFAULT_CHUNK_SIZE = 4000
+DEFAULT_CHUNK_OVERLAP = 300
 HTTP_SERVER_ERROR_MIN = 500
 HTTP_SERVER_ERROR_MAX = 600
 
@@ -83,44 +85,29 @@ class SummarizerSettings:
     temperature: float
     timeout_seconds: float
     system_prompt: str
+    chunk_size: int
+    chunk_overlap: int
 
     @classmethod
     def from_env(cls) -> SummarizerSettings:
         """Load summarizer configuration from environment variables."""
-        api_base_raw = os.getenv('LLM_API_BASE', '').strip()
-        if not api_base_raw:
-            message = 'LLM_API_BASE must be configured for the summarization service'
-            raise RuntimeError(message)
-
+        api_base_raw = cls._get_required_env('LLM_API_BASE')
         api_base = cls._normalize_api_base(api_base_raw)
 
-        api_key = os.getenv('LLM_API_KEY', '').strip()
-        if not api_key:
-            message = 'LLM_API_KEY must be configured for the summarization service'
-            raise RuntimeError(message)
-
+        api_key = cls._get_required_env('LLM_API_KEY')
         model = os.getenv('LLM_MODEL', DEFAULT_MODEL_NAME).strip() or DEFAULT_MODEL_NAME
-
-        temperature_value = os.getenv('LLM_TEMPERATURE', str(DEFAULT_TEMPERATURE)).strip()
-        try:
-            temperature = float(temperature_value)
-        except ValueError as exc:  # pragma: no cover - defensive guard
-            message = 'LLM_TEMPERATURE must be a valid float value'
-            raise RuntimeError(message) from exc
-
-        timeout_value = os.getenv(
-            'LLM_REQUEST_TIMEOUT_SECONDS',
-            str(DEFAULT_TIMEOUT_SECONDS),
-        ).strip()
-        try:
-            timeout_seconds = float(timeout_value)
-        except ValueError as exc:  # pragma: no cover - defensive guard
-            message = 'LLM_REQUEST_TIMEOUT_SECONDS must be a valid float value'
-            raise RuntimeError(message) from exc
+        temperature = cls._get_float_env('LLM_TEMPERATURE', DEFAULT_TEMPERATURE)
+        timeout_seconds = cls._get_float_env('LLM_REQUEST_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)
 
         system_prompt = os.getenv('LLM_SYSTEM_PROMPT', DEFAULT_SYSTEM_PROMPT).strip()
         if not system_prompt:
             system_prompt = DEFAULT_SYSTEM_PROMPT
+
+        chunk_size = cls._get_int_env('LLM_CHUNK_SIZE', DEFAULT_CHUNK_SIZE, minimum=1)
+        chunk_overlap = cls._get_int_env('LLM_CHUNK_OVERLAP', DEFAULT_CHUNK_OVERLAP, minimum=0)
+        if chunk_overlap >= chunk_size:
+            message = 'LLM_CHUNK_OVERLAP must be smaller than LLM_CHUNK_SIZE'
+            raise RuntimeError(message)
 
         return cls(
             api_base=api_base,
@@ -129,6 +116,8 @@ class SummarizerSettings:
             temperature=temperature,
             timeout_seconds=timeout_seconds,
             system_prompt=system_prompt,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
         )
 
     @staticmethod
@@ -137,6 +126,42 @@ class SummarizerSettings:
         if api_base.endswith('/'):
             return api_base
         return f'{api_base}/'
+
+    @staticmethod
+    def _get_required_env(name: str) -> str:
+        """Return a required environment variable, ensuring it is not empty."""
+        value = os.getenv(name, '').strip()
+        if not value:
+            message = f'{name} must be configured for the summarization service'
+            raise RuntimeError(message)
+        return value
+
+    @staticmethod
+    def _get_float_env(name: str, default: float) -> float:
+        """Parse a float environment variable with fallback and validation."""
+        raw_value = os.getenv(name, str(default)).strip()
+        try:
+            return float(raw_value)
+        except ValueError as exc:  # pragma: no cover - defensive guard
+            message = f'{name} must be a valid float value'
+            raise RuntimeError(message) from exc
+
+    @staticmethod
+    def _get_int_env(name: str, default: int, *, minimum: int) -> int:
+        """Parse an integer environment variable, enforcing a minimum bound."""
+        raw_value = os.getenv(name, str(default)).strip()
+        try:
+            value = int(raw_value)
+        except ValueError as exc:  # pragma: no cover - defensive guard
+            message = f'{name} must be a valid integer'
+            raise RuntimeError(message) from exc
+
+        if value < minimum:
+            comparator = 'than or equal to' if minimum == 0 else 'than'
+            message = f'{name} must be greater {comparator} {minimum}'
+            raise RuntimeError(message)
+
+        return value
 
 
 class SummarizeService(SummarizeServicer):
@@ -174,13 +199,7 @@ class SummarizeService(SummarizeServicer):
 
         LOGGER.info('Received summarization request (length=%d)', len(source_text))
 
-        try:
-            summary_text = self._generate_summary(source_text, context)
-        except grpc.RpcError:
-            raise
-        except Exception as exc:  # pragma: no cover - defensive
-            LOGGER.exception('Unexpected error during summarization request handling')
-            context.abort(grpc.StatusCode.INTERNAL, f'Unexpected summarization failure: {exc}')
+        summary_text = self._generate_summary(source_text, context)
 
         summary_cls = getattr(summarize_pb2, 'Summary')  # noqa: B009
         response = summary_cls(text=summary_text)
@@ -190,15 +209,82 @@ class SummarizeService(SummarizeServicer):
 
     def _generate_summary(self, text: str, context: ServicerContext) -> str:
         """Invoke the configured LLM API and return the resulting summary."""
+        chunks = self._split_into_chunks(text)
+        if len(chunks) == 1:
+            LOGGER.debug('Summarizing text in a single request (length=%d)', len(text))
+            return self._request_summary(chunks[0], context)
+
+        # Multi-stage summarization pipeline:
+        # 1. Break the long transcript into overlapping chunks that fit the LLM context window.
+        # 2. Summarize each chunk individually so that no information is lost.
+        # 3. Combine the partial summaries and summarize them again to obtain the final result.
+        LOGGER.info(
+            'Summarizing text in %d chunks (chunk_size=%d, overlap=%d)',
+            len(chunks),
+            self._settings.chunk_size,
+            self._settings.chunk_overlap,
+        )
+
+        partial_summaries: list[str] = []
+        for index, chunk in enumerate(chunks, start=1):
+            LOGGER.debug(
+                'Generating partial summary %d/%d (length=%d)',
+                index,
+                len(chunks),
+                len(chunk),
+            )
+            prompt = (
+                'Summarize the following meeting segment, highlighting action items, '
+                'decisions, and owner assignments.'
+            )
+            partial_summary = self._request_summary(f'{prompt}\n\n{chunk}', context)
+            partial_summaries.append(partial_summary)
+
+        combined_summary = '\n\n'.join(
+            f'Segment {idx} summary:\n{summary}'
+            for idx, summary in enumerate(partial_summaries, start=1)
+        )
+
+        final_prompt = (
+            'Produce a cohesive meeting summary based on the provided segment summaries. '
+            'Merge overlapping information, keep the timeline clear, and list actionable '
+            'next steps.'
+        )
+
+        final_request = f'{final_prompt}\n\n{combined_summary}'
+        return self._request_summary(final_request, context)
+
+    def _request_summary(self, user_content: str, context: ServicerContext) -> str:
+        """Call the remote LLM API with the provided user content."""
         payload = {
             'model': self._settings.model,
             'temperature': self._settings.temperature,
             'messages': [
                 {'role': 'system', 'content': self._settings.system_prompt},
-                {'role': 'user', 'content': text},
+                {'role': 'user', 'content': user_content},
             ],
         }
 
+        payload_data = self._execute_llm_request(payload, context)
+
+        try:
+            summary_text = self._extract_summary(payload_data)
+        except ValueError as exc:
+            LOGGER.error('Unexpected response schema from LLM API: %s', payload_data)
+            context.abort(grpc.StatusCode.INTERNAL, str(exc))
+
+        if not summary_text:
+            context.abort(grpc.StatusCode.INTERNAL, 'LLM API returned an empty summary')
+
+        LOGGER.debug('Generated summary length=%d', len(summary_text))
+        return summary_text
+
+    def _execute_llm_request(
+        self,
+        payload: dict[str, Any],
+        context: ServicerContext,
+    ) -> dict[str, Any]:
+        """Send the payload to the LLM API and return the decoded JSON body."""
         try:
             response = self._client.post('chat/completions', json=payload)
             response.raise_for_status()
@@ -221,17 +307,48 @@ class SummarizeService(SummarizeServicer):
             LOGGER.error('Failed to decode LLM API response as JSON: %s', exc)
             context.abort(grpc.StatusCode.INTERNAL, 'Failed to decode LLM API response')
 
-        try:
-            summary_text = self._extract_summary(payload_data)
-        except ValueError as exc:
-            LOGGER.error('Unexpected response schema from LLM API: %s', payload_data)
-            context.abort(grpc.StatusCode.INTERNAL, str(exc))
+        return payload_data
 
-        if not summary_text:
-            context.abort(grpc.StatusCode.INTERNAL, 'LLM API returned an empty summary')
+    def _split_into_chunks(self, text: str) -> list[str]:
+        """Split the text into context-friendly chunks with optional overlap."""
+        if len(text) <= self._settings.chunk_size:
+            return [text]
 
-        LOGGER.debug('Generated summary length=%d', len(summary_text))
-        return summary_text
+        chunks: list[str] = []
+        start = 0
+        text_length = len(text)
+        while start < text_length:
+            end = min(text_length, start + self._settings.chunk_size)
+            boundary = self._locate_chunk_boundary(text, start, end) if end < text_length else end
+
+            boundary = max(boundary, start + 1)
+            chunk = text[start:boundary].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            if boundary >= text_length:
+                break
+
+            overlap = min(self._settings.chunk_overlap, self._settings.chunk_size - 1)
+            start = max(boundary - overlap, 0)
+
+        return chunks
+
+    def _locate_chunk_boundary(self, text: str, start: int, end: int) -> int:
+        """Select a natural break point for a chunk, preferring paragraph or sentence ends."""
+        paragraph_break = text.rfind('\n\n', start, end)
+        if paragraph_break > start:
+            return paragraph_break
+
+        sentence_break = text.rfind('. ', start, end)
+        if sentence_break > start:
+            return sentence_break + 1
+
+        word_break = text.rfind(' ', start, end)
+        if word_break > start:
+            return word_break
+
+        return end
 
     @staticmethod
     def _extract_summary(payload: dict[str, Any]) -> str:
