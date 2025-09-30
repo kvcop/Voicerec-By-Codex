@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncGenerator, Callable, Iterator
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
@@ -18,8 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import meeting
 from app.core.security import create_access_token, hash_password
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
-from app.db.repositories import MeetingRepository
+from app.db.repositories import MeetingRepository, TranscriptRepository
 from app.db.repositories.user import UserRepository
+from app.models.meeting import MeetingStatus
 from app.services.auth import AUTH_SCHEME_BEARER
 from app.services.transcript import (
     TranscriptService,
@@ -461,5 +463,109 @@ async def test_stream_forbidden_for_other_user(
 
     client = TestClient(fastapi_app)
     response = client.get(f'/api/meeting/{meeting_id}/stream', headers=headers_other)
+    assert response.status_code == HTTPStatus.FORBIDDEN, response.json()
+    assert response.json() == {'detail': 'You do not have access to this meeting'}
+
+
+@pytest.mark.asyncio
+async def test_get_meeting_details_returns_transcripts(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """Meeting detail endpoint returns stored transcript segments."""
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    meeting_repository = MeetingRepository(fastapi_db_session)
+    meeting = await meeting_repository.create(
+        user_id=user.id,
+        filename='session.wav',
+        status=MeetingStatus.COMPLETED,
+    )
+    meeting = await meeting_repository.update(meeting, summary='Summary text')
+
+    transcript_repository = TranscriptRepository(fastapi_db_session)
+    timestamp = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    first = await transcript_repository.create(
+        meeting_id=meeting.id,
+        text='Hello there',
+        speaker_id='speaker-1',
+        timestamp=timestamp,
+    )
+    second = await transcript_repository.create(
+        meeting_id=meeting.id,
+        text='General Kenobi',
+        speaker_id='speaker-2',
+        timestamp=timestamp + timedelta(seconds=5),
+    )
+    await fastapi_db_session.commit()
+
+    client = TestClient(fastapi_app)
+    response = client.get(f'/api/meeting/{meeting.id}', headers=headers)
+    assert response.status_code == HTTPStatus.OK, response.json()
+    payload = response.json()
+
+    assert payload['id'] == str(meeting.id)
+    assert payload['filename'] == 'session.wav'
+    assert payload['status'] == MeetingStatus.COMPLETED.value
+    assert payload['summary'] == 'Summary text'
+    assert payload['created_at'] == meeting.created_at.isoformat()
+    transcripts = payload['transcripts']
+    expected_transcript_count = 2
+    assert len(transcripts) == expected_transcript_count
+
+    first_payload = transcripts[0]
+    assert first_payload['id'] == str(first.id)
+    assert first_payload['text'] == 'Hello there'
+    assert first_payload['speaker_id'] == 'speaker-1'
+    assert datetime.fromisoformat(first_payload['timestamp'].replace('Z', '+00:00')) == timestamp
+
+    second_payload = transcripts[1]
+    assert second_payload['id'] == str(second.id)
+    assert second_payload['text'] == 'General Kenobi'
+    assert second_payload['speaker_id'] == 'speaker-2'
+    expected_second_timestamp = timestamp + timedelta(seconds=5)
+    second_timestamp = second_payload['timestamp'].replace('Z', '+00:00')
+    assert datetime.fromisoformat(second_timestamp) == expected_second_timestamp
+
+
+@pytest.mark.asyncio
+async def test_get_meeting_details_requires_completed_status(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """Meeting detail endpoint rejects non-completed meetings."""
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    meeting_repository = MeetingRepository(fastapi_db_session)
+    meeting = await meeting_repository.create(
+        user_id=user.id,
+        filename='session.wav',
+        status=MeetingStatus.PROCESSING,
+    )
+    await fastapi_db_session.commit()
+
+    client = TestClient(fastapi_app)
+    response = client.get(f'/api/meeting/{meeting.id}', headers=headers)
+    assert response.status_code == HTTPStatus.CONFLICT, response.json()
+    assert response.json() == {'detail': 'Transcript is not available yet.'}
+
+
+@pytest.mark.asyncio
+async def test_get_meeting_details_forbidden_for_other_user(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """Users cannot fetch transcripts belonging to another account."""
+    _, owner = await _build_auth_headers(fastapi_db_session)
+    meeting_repository = MeetingRepository(fastapi_db_session)
+    meeting = await meeting_repository.create(
+        user_id=owner.id,
+        filename='session.wav',
+        status=MeetingStatus.COMPLETED,
+    )
+    await fastapi_db_session.commit()
+
+    headers_other, _ = await _build_auth_headers(fastapi_db_session)
+
+    client = TestClient(fastapi_app)
+    response = client.get(f'/api/meeting/{meeting.id}', headers=headers_other)
     assert response.status_code == HTTPStatus.FORBIDDEN, response.json()
     assert response.json() == {'detail': 'You do not have access to this meeting'}
