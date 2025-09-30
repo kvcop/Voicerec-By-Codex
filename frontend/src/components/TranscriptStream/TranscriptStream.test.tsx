@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { TranslationProvider, Locale } from '../../i18n';
 import { AuthProvider } from '../AuthProvider';
 import TranscriptStream, { EventSourceFactory } from './index';
+import styles from './styles.module.css';
 
 type GenericListener = (payload: unknown) => void;
 
@@ -232,5 +233,27 @@ describe('TranscriptStream', () => {
 
     expect(MockEventSource.instances).toHaveLength(2);
     expect(MockEventSource.instances[1].url).toBe('/api/meeting/meeting-2/stream');
+  });
+
+  it('marks transcript section as live region and renders scrollable list', async () => {
+    const factory = ((url: string) => new MockEventSource(url)) as EventSourceFactory;
+    renderWithIntl(<TranscriptStream meetingId="meeting-live" eventSourceFactory={factory} />);
+
+    const liveSection = document.querySelector('section[aria-live="polite"]');
+    expect(liveSection).not.toBeNull();
+
+    await act(async () => {
+      MockEventSource.instances[0].emitOpen();
+      MockEventSource.instances[0].emitTranscript({ id: 'first', text: 'Первый блок' });
+      MockEventSource.instances[0].emitTranscript({ id: 'second', text: 'Второй блок' });
+      MockEventSource.instances[0].emitTranscript({ id: 'final', text: 'Финальный блок' });
+    });
+
+    const list = await screen.findByRole('list');
+    expect(list.classList.contains(styles.list)).toBe(true);
+
+    const items = await screen.findAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    expect(items[items.length - 1]?.textContent).toContain('Финальный блок');
   });
 });
