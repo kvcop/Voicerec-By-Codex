@@ -20,6 +20,7 @@ uv.lock
 backend/tests/__pycache__/
 backend/uv.lock
 .asr_service.log
+.diarize_service.log
 
 # Data artifacts
 data/raw/

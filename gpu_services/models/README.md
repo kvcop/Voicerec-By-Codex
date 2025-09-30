@@ -13,6 +13,8 @@ The `gpu_services.diarization_resources` module assumes the following files are 
 
 Place the actual NeMo artifacts in this folder (or update the environment variables described below to point elsewhere). The repository deliberately keeps only documentation files under version control—real model weights are large and should be fetched manually, for example via the [NeMo model registry](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/nemo/models).
 
+A step-by-step checklist for downloading the artifacts and running the smoke test is available in [`docs/diarization_testing_manual.md`](../../docs/diarization_testing_manual.md).
+
 ## Environment variables
 
 The loader honours the following overrides:
