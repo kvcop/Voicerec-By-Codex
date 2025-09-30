@@ -8,13 +8,16 @@ import json
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
-from uuid import uuid4
+from uuid import UUID
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import get_current_user
+from app.db.repositories import MeetingRepository
+from app.db.session import get_session
+from app.models.meeting import Meeting, MeetingStatus
 from app.services.transcript import (
     MeetingNotFoundError,
     StreamItem,
@@ -26,8 +29,11 @@ from app.services.transcript import (
 if TYPE_CHECKING:  # pragma: no cover - used only for type hints
     from collections.abc import AsyncGenerator, AsyncIterator
 
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.models.user import User
 else:
+    AsyncSession = Any
     User = Any
 
 router = APIRouter(prefix='/api/meeting')
@@ -74,6 +80,7 @@ async def upload_audio(
     file: Annotated[UploadFile, File(...)],
     raw_audio_dir: Annotated[Path, Depends(get_raw_audio_dir)],
     current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, str]:
     """Save uploaded WAV file and return meeting identifier."""
     _ = current_user.id  # Access attribute to mark the dependency as used.
@@ -84,10 +91,21 @@ async def upload_audio(
             detail='Only WAV audio is supported.',
         )
 
-    meeting_id = uuid4().hex
+    repository = MeetingRepository(session)
+    filename = file.filename or 'meeting.wav'
+    meeting = await repository.create(user_id=current_user.id, filename=filename)
+    meeting_id = str(meeting.id)
     dest = raw_audio_dir / f'{meeting_id}.wav'
     # TODO: перенести в защищённое хранилище
-    await _store_upload(file, dest)
+    try:
+        await _store_upload(file, dest)
+    except Exception:
+        await session.rollback()
+        with contextlib.suppress(FileNotFoundError):
+            dest.unlink(missing_ok=True)
+        raise
+    else:
+        await session.commit()
     return {'meeting_id': meeting_id}
 
 
@@ -161,9 +179,12 @@ async def stream_transcript(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(_transcript_service_dependency)],
     current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> StreamingResponse:
     """Stream transcript updates via SSE."""
-    _ = current_user.id
+    repository = MeetingRepository(session)
+    meeting = await _ensure_meeting_access(meeting_id, current_user, repository)
+    await _mark_meeting_processing(meeting, repository, session)
     return _streaming_response(meeting_id, service)
 
 
@@ -172,9 +193,12 @@ async def stream_transcript_legacy(
     meeting_id: str,
     service: Annotated[TranscriptService, Depends(get_transcript_service)],
     current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> StreamingResponse:
     """Legacy path kept for backward compatibility with early clients."""
-    _ = current_user.id
+    repository = MeetingRepository(session)
+    meeting = await _ensure_meeting_access(meeting_id, current_user, repository)
+    await _mark_meeting_processing(meeting, repository, session)
     return _streaming_response(meeting_id, service)
 
 
@@ -215,6 +239,42 @@ async def _close_async_iterator(iterator: AsyncIterator[StreamItem]) -> None:
 async def _anext(iterator: AsyncIterator[StreamItem]) -> StreamItem:
     """Return next item from asynchronous iterator."""
     return await iterator.__anext__()
+
+
+async def _ensure_meeting_access(
+    meeting_id: str,
+    current_user: User,
+    repository: MeetingRepository,
+) -> Meeting:
+    """Return meeting if it exists and belongs to the current user."""
+    try:
+        meeting_uuid = UUID(meeting_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='Meeting not found') from exc
+
+    meeting = await repository.get_by_id(meeting_uuid)
+    if meeting is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='Meeting not found')
+
+    if meeting.user_id != current_user.id:
+        detail = 'You do not have access to this meeting'
+        raise HTTPException(status_code=HTTPStatus.FORBIDDEN, detail=detail)
+    return meeting
+
+
+async def _mark_meeting_processing(
+    meeting: Meeting,
+    repository: MeetingRepository,
+    session: AsyncSession,
+) -> None:
+    """Mark meeting as processing when transcript streaming starts."""
+    if meeting.status == MeetingStatus.PROCESSING:
+        return
+    if meeting.status != MeetingStatus.PENDING:
+        return
+
+    await repository.update(meeting, status=MeetingStatus.PROCESSING)
+    await session.commit()
 
 
 __all__ = ['legacy_router', 'router']

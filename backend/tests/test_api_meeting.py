@@ -8,7 +8,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, NoReturn, Self, cast
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import UploadFile
@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import meeting
 from app.core.security import create_access_token, hash_password
 from app.core.settings import DEFAULT_RAW_AUDIO_DIR, get_settings
+from app.db.repositories import MeetingRepository
 from app.db.repositories.user import UserRepository
 from app.services.auth import AUTH_SCHEME_BEARER
 from app.services.transcript import (
@@ -29,6 +30,7 @@ from app.services.transcript import (
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints
     from fastapi import FastAPI
 
+    from app.models.user import User
     from app.services.meeting_processing import MeetingProcessingService
 
 OverrideMap = dict[Callable[..., object], Callable[..., object]]
@@ -48,14 +50,14 @@ def _override_dependencies(app: 'FastAPI', overrides: OverrideMap) -> Iterator[N
             app.dependency_overrides.pop(dependency, None)
 
 
-async def _build_auth_headers(session: AsyncSession) -> dict[str, str]:
+async def _build_auth_headers(session: AsyncSession) -> tuple[dict[str, str], 'User']:
     """Create authorization headers for a newly provisioned user."""
     repository = UserRepository(session)
     email = f'meeting-{uuid4().hex}@example.com'
     user = await repository.create(email=email, hashed_password=hash_password('SecurePass123'))
     await session.commit()
     token = create_access_token(subject=str(user.id), additional_claims={'email': user.email})
-    return {AUTH_HEADER_NAME: f'{BEARER_PREFIX} {token}'}
+    return {AUTH_HEADER_NAME: f'{BEARER_PREFIX} {token}'}, user
 
 
 def test_raw_audio_dir_default_location(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,12 +86,6 @@ async def test_upload(
     fastapi_db_session: AsyncSession,
 ) -> None:
     """Uploading audio saves file and returns meeting id."""
-    meeting_id = 'abc123'
-
-    class _UUID:
-        hex = meeting_id
-
-    monkeypatch.setattr(meeting, 'uuid4', lambda: _UUID())
     monkeypatch.setattr(meeting, 'CHUNK_SIZE', 1024)
 
     data = bytes(range(256)) * 4096
@@ -126,7 +122,7 @@ async def test_upload(
     monkeypatch.setattr(meeting.aiofiles, 'open', _fake_open)
 
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, user = await _build_auth_headers(fastapi_db_session)
     overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
     with _override_dependencies(fastapi_app, overrides):
         response = client.post(
@@ -135,11 +131,18 @@ async def test_upload(
             headers=headers,
         )
     assert response.status_code == HTTPStatus.OK, response.json()
-    assert response.json() == {'meeting_id': meeting_id}
+    response_data = response.json()
+    meeting_id = response_data['meeting_id']
     saved = tmp_path / f'{meeting_id}.wav'
     assert saved.read_bytes() == data
     assert opened_files
     assert opened_files[0].closed is True
+
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.get_by_id(UUID(meeting_id))
+    assert stored_meeting is not None
+    assert stored_meeting.user_id == user.id
+    assert stored_meeting.filename == 'audio.wav'
 
 
 @pytest.mark.asyncio
@@ -150,7 +153,7 @@ async def test_upload_rejects_non_wav(
 ) -> None:
     """Uploading non-WAV files is rejected with 415 status."""
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, _ = await _build_auth_headers(fastapi_db_session)
     overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
     with _override_dependencies(fastapi_app, overrides):
         response = client.post(
@@ -172,7 +175,7 @@ async def test_upload_accepts_mixed_case_mime(
 ) -> None:
     """Mixed-case WAV MIME types are accepted."""
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, _ = await _build_auth_headers(fastapi_db_session)
     overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
     with _override_dependencies(fastapi_app, overrides):
         response = client.post(
@@ -194,12 +197,6 @@ async def test_upload_streams_large_files(
     fastapi_db_session: AsyncSession,
 ) -> None:
     """Large uploads are streamed to disk without buffering entire payload."""
-    meeting_id = 'big'
-
-    class _UUID:
-        hex = meeting_id
-
-    monkeypatch.setattr(meeting, 'uuid4', lambda: _UUID())
     monkeypatch.setattr(meeting, 'CHUNK_SIZE', 1024)
 
     chunks = [b'a' * 1024, b'b' * 1024, b'c']
@@ -245,7 +242,7 @@ async def test_upload_streams_large_files(
     monkeypatch.setattr(meeting, '_iter_upload_file', _fake_iter)
 
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, _ = await _build_auth_headers(fastapi_db_session)
     overrides: OverrideMap = {meeting.get_raw_audio_dir: lambda: tmp_path}
     with _override_dependencies(fastapi_app, overrides):
         response = client.post(
@@ -255,6 +252,7 @@ async def test_upload_streams_large_files(
         )
 
     assert response.status_code == HTTPStatus.OK, response.json()
+    meeting_id = response.json()['meeting_id']
     saved = tmp_path / f'{meeting_id}.wav'
     assert saved.read_bytes() == b''.join(chunks)
     assert writes == chunks
@@ -284,12 +282,16 @@ async def test_stream(
 
     fake_service = _FakeTranscriptService()
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.create(user_id=user.id, filename='audio.wav')
+    await fastapi_db_session.commit()
+    meeting_id = str(stored_meeting.id)
     overrides: OverrideMap = {get_transcript_service: lambda: fake_service}
     lines: list[str] = []
     with (
         _override_dependencies(fastapi_app, overrides),
-        client.stream('GET', '/api/meeting/xyz/stream', headers=headers) as response,
+        client.stream('GET', f'/api/meeting/{meeting_id}/stream', headers=headers) as response,
     ):
         assert response.status_code == HTTPStatus.OK, response.json()
         lines = [line for line in response.iter_lines() if line != '']
@@ -302,7 +304,7 @@ async def test_stream(
         'event: summary',
         'data: {"summary": "Done"}',
     ]
-    assert fake_service.calls == ['xyz']
+    assert fake_service.calls == [meeting_id]
 
 
 @pytest.mark.asyncio
@@ -330,13 +332,17 @@ async def test_stream_missing_meeting_returns_404(
         raw_audio_dir=tmp_path,
     )
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.create(user_id=user.id, filename='audio.wav')
+    await fastapi_db_session.commit()
+    meeting_id = str(stored_meeting.id)
     overrides: OverrideMap = {get_transcript_service: lambda: service}
     with _override_dependencies(fastapi_app, overrides):
-        response = client.get('/api/meeting/missing/stream', headers=headers)
+        response = client.get(f'/api/meeting/{meeting_id}/stream', headers=headers)
 
     assert response.status_code == HTTPStatus.NOT_FOUND, response.json()
-    assert response.json() == {'detail': 'Meeting missing not found'}
+    assert response.json() == {'detail': f'Meeting {meeting_id} not found'}
     assert processor.calls == []
 
 
@@ -351,12 +357,13 @@ async def test_stream_emits_heartbeat_before_payload(
     class _DelayedService:
         def __init__(self) -> None:
             self.checked: list[str] = []
+            self.streamed: list[str] = []
 
         def ensure_audio_available(self, meeting_id: str) -> None:
             self.checked.append(meeting_id)
 
         def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
-            assert meeting_id == 'meeting-id'
+            self.streamed.append(meeting_id)
 
             async def generator() -> AsyncGenerator[dict[str, object], None]:
                 await asyncio.sleep(0.03)
@@ -366,7 +373,11 @@ async def test_stream_emits_heartbeat_before_payload(
 
     service = _DelayedService()
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.create(user_id=user.id, filename='audio.wav')
+    await fastapi_db_session.commit()
+    meeting_id = str(stored_meeting.id)
     overrides: OverrideMap = {get_transcript_service: lambda: service}
     monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
     monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.2)
@@ -374,7 +385,7 @@ async def test_stream_emits_heartbeat_before_payload(
     lines: list[str] = []
     with (
         _override_dependencies(fastapi_app, overrides),
-        client.stream('GET', '/api/meeting/meeting-id/stream', headers=headers) as response,
+        client.stream('GET', f'/api/meeting/{meeting_id}/stream', headers=headers) as response,
     ):
         assert response.status_code == HTTPStatus.OK, response.status_code
         lines = [line for line in response.iter_lines() if line]
@@ -384,7 +395,7 @@ async def test_stream_emits_heartbeat_before_payload(
         'event: summary',
         'data: {"summary": "Done"}',
     ]
-    assert service.checked == ['meeting-id']
+    assert service.checked == [meeting_id]
 
 
 @pytest.mark.asyncio
@@ -396,11 +407,14 @@ async def test_stream_stops_after_idle_timeout(
     """Stream closes when payloads are not produced within idle timeout."""
 
     class _HangingService:
+        def __init__(self) -> None:
+            self.stream_requests: list[str] = []
+
         def ensure_audio_available(self, meeting_id: str) -> None:
             del meeting_id
 
         def stream_transcript(self, meeting_id: str) -> AsyncGenerator[dict[str, object], None]:
-            assert meeting_id == 'meeting-id'
+            self.stream_requests.append(meeting_id)
 
             async def generator() -> AsyncGenerator[dict[str, object], None]:
                 await asyncio.sleep(1)
@@ -410,7 +424,11 @@ async def test_stream_stops_after_idle_timeout(
 
     service = _HangingService()
     client = TestClient(fastapi_app)
-    headers = await _build_auth_headers(fastapi_db_session)
+    headers, user = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.create(user_id=user.id, filename='audio.wav')
+    await fastapi_db_session.commit()
+    meeting_id = str(stored_meeting.id)
     overrides: OverrideMap = {get_transcript_service: lambda: service}
     monkeypatch.setattr(meeting, 'HEARTBEAT_INTERVAL_SECONDS', 0.01)
     monkeypatch.setattr(meeting, 'STREAM_IDLE_TIMEOUT_SECONDS', 0.05)
@@ -418,10 +436,30 @@ async def test_stream_stops_after_idle_timeout(
     lines: list[str] = []
     with (
         _override_dependencies(fastapi_app, overrides),
-        client.stream('GET', '/api/meeting/meeting-id/stream', headers=headers) as response,
+        client.stream('GET', f'/api/meeting/{meeting_id}/stream', headers=headers) as response,
     ):
         assert response.status_code == HTTPStatus.OK, response.status_code
         lines = [line for line in response.iter_lines() if line]
 
     assert lines
     assert all(line == ': heartbeat' for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_stream_forbidden_for_other_user(
+    fastapi_app: 'FastAPI',
+    fastapi_db_session: AsyncSession,
+) -> None:
+    """Streaming transcript for another user's meeting returns 403."""
+    _, owner = await _build_auth_headers(fastapi_db_session)
+    repository = MeetingRepository(fastapi_db_session)
+    stored_meeting = await repository.create(user_id=owner.id, filename='audio.wav')
+    await fastapi_db_session.commit()
+    meeting_id = str(stored_meeting.id)
+
+    headers_other, _ = await _build_auth_headers(fastapi_db_session)
+
+    client = TestClient(fastapi_app)
+    response = client.get(f'/api/meeting/{meeting_id}/stream', headers=headers_other)
+    assert response.status_code == HTTPStatus.FORBIDDEN, response.json()
+    assert response.json() == {'detail': 'You do not have access to this meeting'}
