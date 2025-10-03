@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import datetime as dt
 import json
+from datetime import datetime, timezone
 from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, cast
@@ -17,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_serializer
 
 from app.api.dependencies import get_current_user
-from app.db.repositories import MeetingRepository
+from app.db.repositories import MeetingRepository, TranscriptRepository
 from app.db.session import get_session
 from app.models.meeting import Meeting, MeetingStatus
 from app.services.transcript import (
@@ -33,9 +34,11 @@ if TYPE_CHECKING:  # pragma: no cover - used only for type hints
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.models.transcript import Transcript
     from app.models.user import User
 else:
     AsyncSession = Any
+    Transcript = Any
     User = Any
 
 router = APIRouter(prefix='/api/meeting')
@@ -129,6 +132,61 @@ async def list_meetings(
     repository = MeetingRepository(session)
     meetings = await repository.list_by_user(current_user.id)
     return [MeetingSummaryResponse.from_model(item) for item in meetings]
+
+
+class TranscriptSegmentResponse(BaseModel):
+    """Serialized transcript segment associated with a meeting."""
+
+    id: str
+    text: str
+    speaker_id: str | None = None
+    timestamp: datetime | None = None
+
+    @classmethod
+    def from_model(cls, transcript: Transcript) -> TranscriptSegmentResponse:
+        """Return response constructed from the provided ``Transcript``."""
+        timestamp = transcript.timestamp
+        if timestamp is not None and timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return cls(
+            id=str(transcript.id),
+            text=transcript.text,
+            speaker_id=transcript.speaker_id,
+            timestamp=timestamp,
+        )
+
+
+class MeetingDetailResponse(BaseModel):
+    """Serialized representation of a meeting with transcript segments."""
+
+    id: str
+    filename: str
+    status: MeetingStatus
+    created_at: datetime
+    summary: str | None = None
+    transcripts: list[TranscriptSegmentResponse]
+
+    @classmethod
+    def from_models(
+        cls,
+        meeting: Meeting,
+        transcripts: list[Transcript],
+    ) -> MeetingDetailResponse:
+        """Return response for ``meeting`` populated with ``transcripts``."""
+        created_at = meeting.created_at
+        if created_at is None:
+            created_at = datetime.now(timezone.utc)
+
+        return cls(
+            id=str(meeting.id),
+            filename=meeting.filename,
+            status=meeting.status,
+            created_at=created_at,
+            summary=meeting.summary,
+            transcripts=[
+                TranscriptSegmentResponse.from_model(transcript) for transcript in transcripts
+            ],
+        )
 
 
 @router.post('/upload')
@@ -256,6 +314,24 @@ async def stream_transcript_legacy(
     meeting = await _ensure_meeting_access(meeting_id, current_user, repository)
     await _mark_meeting_processing(meeting, repository, session)
     return _streaming_response(meeting_id, service)
+
+
+@router.get('/{meeting_id}', response_model=MeetingDetailResponse)
+async def get_meeting_details(
+    meeting_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MeetingDetailResponse:
+    """Return stored transcript segments for a completed meeting."""
+    meeting_repository = MeetingRepository(session)
+    meeting = await _ensure_meeting_access(meeting_id, current_user, meeting_repository)
+    if meeting.status != MeetingStatus.COMPLETED:
+        detail = 'Transcript is not available yet.'
+        raise HTTPException(status_code=HTTPStatus.CONFLICT, detail=detail)
+
+    transcript_repository = TranscriptRepository(session)
+    transcripts = await transcript_repository.list_by_meeting(meeting.id)
+    return MeetingDetailResponse.from_models(meeting, transcripts)
 
 
 def _streaming_response(meeting_id: str, service: TranscriptService) -> StreamingResponse:
